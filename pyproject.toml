@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mmaction2"
+description = "OpenMMLab Video Understanding Toolbox and Benchmark"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "MMAction2 Contributors", email = "openmmlab@gmail.com" },
+]
+maintainers = [
+    { name = "MMAction2 Contributors", email = "openmmlab@gmail.com" },
+]
+keywords = ["computer vision", "video understanding"]
+requires-python = ">=3.9,<3.13"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dynamic = ["version", "dependencies", "optional-dependencies"]
+
+[project.urls]
+Homepage = "https://github.com/open-mmlab/mmaction2"
+
+[tool.setuptools]
+zip-safe = false
+include-package-data = true
+
+[tool.setuptools.packages.find]
+exclude = ["configs", "tools", "demo"]
+
+[tool.setuptools.dynamic]
+version = { attr = "mmaction.version.__version__" }
+dependencies = { file = ["requirements/build.txt", "requirements/mminstall.txt"] }
+
+[tool.setuptools.dynamic.optional-dependencies]
+optional = { file = ["requirements/optional.txt"] }
+tests = { file = ["requirements/tests.txt"] }
+multimodal = { file = ["requirements/multimodal.txt"] }

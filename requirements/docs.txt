@@ -3,7 +3,7 @@ einops
 modelindex
 myst-parser
 opencv-python
--e git+https://github.com/open-mmlab/pytorch_sphinx_theme.git#egg=pytorch_sphinx_theme
+pytorch_sphinx_theme @ git+https://github.com/open-mmlab/pytorch_sphinx_theme.git
 scipy
 sphinx==6.1.3
 sphinx-notfound-page
