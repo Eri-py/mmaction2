@@ -148,4 +148,5 @@ mmaction/tools/*
 # unignore ipython notebook files in demo
 !demo/*.ipynb
 !projects/stad_tutorial/*.ipynb
+!notebooks/*.ipynb
 mmaction/.mim
