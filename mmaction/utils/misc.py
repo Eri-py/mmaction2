@@ -63,7 +63,7 @@ def frame_extract(video_path: str,
         if short_side is not None:
             if new_h is None:
                 h, w, _ = frame.shape
-                new_w, new_h = mmcv.rescale_size((w, h), (short_side, np.Inf))
+                new_w, new_h = mmcv.rescale_size((w, h), (short_side, np.inf))
             frame = mmcv.imresize(frame, (new_w, new_h))
 
         frames.append(frame)
