@@ -28,15 +28,25 @@ or their parameters can be changed without touching script code.
     person-detection → pose-estimation → `inference_skeleton` pipeline already built in
     `notebooks/demo_skeleton.ipynb`.
 - The YAML config file lists the models to run; each model entry specifies at minimum: a name/identifier, the
-  mmaction2 config path (plus, for PoseC3D, the detector and pose-estimator config paths), the checkpoint
-  (local path or URL), and the device to run it on.
+  mmaction2 config path (plus, for PoseC3D, the detector and pose-estimator config paths), the dataset the
+  model is trained on, the checkpoint (local path or URL), and the device to run it on.
 - The config file also has a single global `top_k` setting (default: 5) applied to every model, controlling how
   many top predictions are recorded per video per model.
+- A model entry's checkpoint (for a `recognizer` entry, or the classifier checkpoint of the PoseC3D entry) is
+  optional. If omitted, the script resolves it itself from that model's own mmaction2 config folder — the
+  checkpoint already listed for the given config path and dataset in that folder's own model metadata — so a
+  user only has to name the config and dataset, not hunt down the matching checkpoint URL. This only applies
+  to genuine mmaction2 models; the PoseC3D pipeline's detector and pose-estimator checkpoints (vendored from
+  mmdetection/mmpose, which don't carry this kind of mmaction2 model metadata) must always be given explicitly.
+- Whenever a checkpoint is about to be used (however it was determined), the script checks whether it's already
+  present in this repo's `checkpoints/` folder and downloads it there first if not, so repeated or resumed runs
+  reuse a local copy instead of depending on where else it might already be cached.
 - The video folder is scanned non-recursively for files with common video extensions (e.g. `.mp4`, `.avi`,
   `.mov`, `.mkv`).
 - Results are written to a single long-format CSV: one row per (video, model, rank), with columns identifying
-  the video, the model, the label space (K400 vs GYM99), the rank, the predicted label, and its score. This
-  keeps the table filterable per model with pandas without forcing all 5 models into a rigid wide schema.
+  the video, the model, the dataset/label space it was trained on (Kinetics-400 vs FineGYM), the rank, the
+  predicted label, and its score. This keeps the table filterable per model with pandas without forcing all 5
+  models into a rigid wide schema.
 - If a given (video, model) pair fails to process (corrupt file, decode error, OOM, etc.), the failure is
   logged and the sweep continues with the next item; no row is written to the results CSV for that pair, and no
   other (video, model) pairs are affected.
@@ -56,9 +66,11 @@ or their parameters can be changed without touching script code.
   whole script is the retry mechanism, and skipped pairs are only retried if they're still absent from the
   output CSV (i.e., a permanently-corrupt video will keep failing on every re-run unless removed from the input
   folder).
-- Validating or fetching checkpoints ahead of time — the 4 recognition checkpoints and the skeleton pipeline's
-  checkpoints are already confirmed reachable; the script does not need its own pre-flight download/validation
-  step.
+- Auto-selecting the config/architecture itself from a dataset name — `dataset` is only used to resolve or
+  validate a checkpoint for a config the user already named explicitly; the user always states the exact
+  mmaction2 config file to run, never just an architecture + dataset pair.
+- Checkpoint resolution/caching for the PoseC3D detector and pose-estimator checkpoints — those are always
+  given explicitly (see Requirements); only local caching applies to them, not dataset-based lookup.
 
 ## Acceptance Criteria
 
@@ -75,6 +87,12 @@ or their parameters can be changed without touching script code.
   config, and output path, then only (video, model) pairs missing from the existing CSV are processed, and
   previously-recorded rows are left unchanged (not duplicated or reprocessed).
 - Given the results CSV, when filtered by `model_name` with pandas, then each model's predictions can be
-  inspected independently, including which label space (K400 or GYM99) they came from.
+  inspected independently, including which dataset/label space (Kinetics-400 or FineGYM) they came from.
 - Given a non-recursive scan of the input folder, when it contains subfolders, then only videos directly inside
   the given folder (not nested ones) are included in the sweep.
+- Given a model entry whose checkpoint is omitted but whose config and dataset are given, when the sweep runs,
+  then the script resolves the correct checkpoint for that config from its own mmaction2 config folder without
+  the user having to supply a URL.
+- Given any checkpoint the sweep is about to use, when it is not yet present in this repo's `checkpoints/`
+  folder, then the script downloads it there before running inference, and a subsequent run reuses that local
+  copy instead of re-downloading.
