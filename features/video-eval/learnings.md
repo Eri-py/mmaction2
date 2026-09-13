@@ -535,3 +535,37 @@
 - `scripts/video_eval_config.yaml` needed exactly the two `scripts/sweep/` -> `scripts/video_eval/` prefix
   edits in its header's "authoritative implementation" pointer lines — no other content in the file changed
   (confirmed the file still parses via `yaml.safe_load`, `top_k == 5`, 5 models).
+
+## Progress logging (silent-for-minutes fix)
+
+- Added per-model "Starting"/"Finished" bookend lines and a per-video `i/N` success/failure line to both
+  `run_recognizer` and `run_skeleton_topdown`, plus a `=== name (type) ===` boundary line in `main.py` right
+  before each `runner(...)` call. All plain `logger.info`/`logger.exception` — no progress-bar dependency added.
+  `pending` (videos not yet in `completed` for this model) is now computed once as a list before the loop
+  instead of via an inline `if key in completed: continue`, purely so its length can drive the `i/N` and
+  before/after counts; the resume semantics (which pairs get skipped) are byte-for-byte the same check, just
+  hoisted.
+- `rows[0]` is always rank 1 in both runners — confirmed from the existing row-building comprehension, which
+  enumerates `zip(topk.indices, topk.values)` starting at 1 with no re-sorting, so `rows[0]['label']`/`['score']`
+  are safe to use directly in the success log line without re-deriving top-1 separately.
+- yapf reflowed the new two-line `logger.info('Starting model %r: ...', ...)` call from a hand-wrapped
+  two-string-literal continuation into its own preferred `logger.info(\n    'fmt' 'fmt', args...)` shape (extra
+  indent level, args on their own line) — same lesson as Task 2's learning: ran `yapf -i` and took its output
+  rather than hand-tuning indentation to satisfy flake8's E127 guess.
+- Verified end-to-end on CPU instead of the usual cached-GPU pattern used elsewhere in this file, because a
+  real 407-video GPU sweep (`video-eval --videos-dir videos --output results.csv`, PID confirmed via
+  `ps aux | grep video-eval`, ~11.9GB/12.2GB VRAM in use) was actively running on the only GPU on this machine
+  for the entire duration of this task — starting a second `device: cuda:0` process would have competed for
+  the same VRAM/compute and risked crashing or badly slowing that real job. Used a single-model
+  (`slowfast`, already-cached checkpoint) temp YAML with `device: cpu`, and a temp videos dir containing just
+  one file copied out of the real `videos/` folder (the old `videos/demo.mp4` fixture referenced elsewhere no
+  longer exists there — `videos/` now holds the 407 real UCF101-style sweep inputs — so any single file from
+  it works equally well as a stand-in). Confirmed via `ps aux`/`nvidia-smi` before and after that the real job's
+  PID and VRAM usage were unaffected by the CPU-only run.
+- First run against a fresh output CSV logged, in order: `Starting model 'slowfast': 1 video(s) found, 0
+  already done, 1 to process` -> `[slowfast] 1/1 demo.mp4 -> filling eyebrows (0.8969)` -> `Finished model
+  'slowfast': 1 succeeded, 0 failed`. Re-running the identical command against the same CSV logged `Starting
+  model 'slowfast': 1 video(s) found, 1 already done, 0 to process` -> `Finished model 'slowfast': 0 succeeded,
+  0 failed` with no per-video line in between (pending was empty), and the CSV was unchanged (still exactly 5
+  rank rows for demo.mp4, same schema) — confirms the resume check itself, not just "the code still runs",
+  survived the hoist from inline to precomputed.

@@ -21,6 +21,8 @@ def main():
                 logger.error('Unknown model type %r for model %r, skipping',
                              model_entry['type'], model_entry['name'])
                 continue
+            logger.info('=== %s (%s) ===', model_entry['name'],
+                        model_entry['type'])
             try:
                 runner(model_entry, videos, top_k, completed, writer, csv_file)
             except Exception:

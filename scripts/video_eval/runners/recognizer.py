@@ -13,16 +13,25 @@ def run_recognizer(model_entry, videos, top_k, completed, writer, csv_file):
         config_path, checkpoint, device=model_entry['device'])
     labels = (ROOT / model_entry['label_map']).read_text().splitlines()
 
-    for video_path in videos:
-        key = (video_path.name, model_entry['name'])
-        if key in completed:
-            continue
+    pending = [
+        video_path for video_path in videos
+        if (video_path.name, model_entry['name']) not in completed
+    ]
+    logger.info(
+        'Starting model %r: %d video(s) found, %d already done, '
+        '%d to process', model_entry['name'], len(videos),
+        len(videos) - len(pending), len(pending))
+
+    succeeded = 0
+    failed = 0
+    for i, video_path in enumerate(pending, start=1):
         try:
             pred_result = inference_recognizer(model, str(video_path))
             topk = pred_result.pred_score.topk(top_k)
         except Exception:
-            logger.exception('Failed to run model %r on video %r, skipping',
-                             model_entry['name'], video_path.name)
+            logger.exception('[%s] %d/%d FAILED: %s', model_entry['name'], i,
+                             len(pending), video_path.name)
+            failed += 1
             continue
         rows = [{
             'video_path': video_path.name,
@@ -35,3 +44,10 @@ def run_recognizer(model_entry, videos, top_k, completed, writer, csv_file):
             zip(topk.indices.tolist(), topk.values.tolist()), start=1)]
         writer.writerows(rows)
         csv_file.flush()
+        logger.info('[%s] %d/%d %s -> %s (%.4f)', model_entry['name'], i,
+                    len(pending), video_path.name, rows[0]['label'],
+                    rows[0]['score'])
+        succeeded += 1
+
+    logger.info('Finished model %r: %d succeeded, %d failed',
+                model_entry['name'], succeeded, failed)
