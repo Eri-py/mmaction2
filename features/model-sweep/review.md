@@ -136,7 +136,7 @@ None.
 - **Fix:** Use `.get(...)`. The metafile branch then fires and already raises exactly the right message for
   these vendored configs: "No metafile.yml found next to config ... a checkpoint must be given explicitly for
   configs without mmaction2 model metadata." (`scripts/model_sweep.py:98-101`, verified during this review).
-- **Decision:** — _(pending)_
+- **Decision:** Accepted — addressed in "Address N1: use .get() for detector/pose checkpoint fields"
 
 #### N2 — `det_score_thr` and `det_cat_id` are hardcoded
 

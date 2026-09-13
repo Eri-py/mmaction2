@@ -302,3 +302,29 @@
   simply calling `writerow` for each item in its argument, just without yielding back to Python between rows).
 - Quality gate: `flake8`, `isort --check-only`, `yapf --diff` on `scripts/model_sweep.py` all clean (exit 0,
   no diff) — no reflow needed beyond the list-comprehension shape written directly.
+
+## Fix N1 — `detector_checkpoint`/`pose_checkpoint` bracket access raised a bare `KeyError`
+
+- Fix matched the finding exactly: in `run_skeleton_topdown`, `model_entry['detector_checkpoint']` and
+  `model_entry['pose_checkpoint']` became `model_entry.get('detector_checkpoint')` and
+  `model_entry.get('pose_checkpoint')`, matching the existing `model_entry.get('classifier_checkpoint')` a few
+  lines below. No other lines in the function changed.
+- Quality gate: `.venv/bin/python -m flake8 scripts/model_sweep.py`, `.venv/bin/python -m isort
+  --check-only scripts/model_sweep.py`, `.venv/bin/python -m yapf --diff scripts/model_sweep.py` all clean
+  (exit 0, no diff/output).
+- Verified the fix actually improves the error, not just silences a lint concern: built a temp single-model
+  `skeleton_topdown` YAML (copy of the real `posec3d` entry from `scripts/model_sweep_config.yaml` with the
+  `detector_checkpoint` line deleted) and ran `scripts/model_sweep.py --videos-dir videos --config
+  <temp>.yaml --output <temp>.csv`. Before the fix this would have died with `KeyError:
+  'detector_checkpoint'`; after the fix it raises (and, thanks to the already-fixed S2 per-model isolation,
+  logs and continues past)
+  `FileNotFoundError: No metafile.yml found next to config
+  .../configs/person_detector/faster-rcnn_r50_fpn_2x_coco_infer.py - a checkpoint must be given explicitly for
+  configs without mmaction2 model metadata.` — exactly the message `lookup_checkpoint_in_metafile` produces,
+  and exactly why: `configs/person_detector/` is a vendored mmdetection config with deliberately no
+  `metafile.yml` (per CLAUDE.md), so auto-resolution correctly refuses rather than crashing confusingly.
+- Verified the normal case is unaffected: ran the real `posec3d` entry (both checkpoints given explicitly, as
+  in the shipped `scripts/model_sweep_config.yaml`) against one video (`videos/demo.mp4`) end to end. Detector,
+  pose model, and classifier all initialized and ran without error, producing 5 well-formed top-k rows in the
+  output CSV (top-1 "(UB) clear hip circle backward to handstand" @ 0.3563977777957916), confirming
+  `.get(...)` returning the same present value behaves identically to bracket access when the key exists.

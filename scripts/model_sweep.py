@@ -192,11 +192,12 @@ def run_skeleton_topdown(model_entry, videos, top_k, completed, writer,
     device = model_entry['device']
     detector_config = ROOT / model_entry['detector_config']
     detector_checkpoint = resolve_checkpoint(
-        model_entry['detector_checkpoint'], detector_config,
+        model_entry.get('detector_checkpoint'), detector_config,
         model_entry['dataset'])
     pose_config = ROOT / model_entry['pose_config']
-    pose_checkpoint = resolve_checkpoint(model_entry['pose_checkpoint'],
-                                         pose_config, model_entry['dataset'])
+    pose_checkpoint = resolve_checkpoint(
+        model_entry.get('pose_checkpoint'), pose_config,
+        model_entry['dataset'])
     classifier_config = ROOT / model_entry['classifier_config']
     classifier_checkpoint = resolve_checkpoint(
         model_entry.get('classifier_checkpoint'), classifier_config,
