@@ -7,8 +7,8 @@ from mmpose.apis import init_model as init_pose_model
 from mmaction.apis import (detection_inference, inference_skeleton,
                            init_recognizer, pose_inference)
 from mmaction.utils import frame_extract
+from ..checkpoints import resolve_checkpoint
 from ..common import ROOT, logger
-from ..resolve_checkpoint import resolve_checkpoint
 
 
 def run_skeleton_topdown(model_entry, videos, top_k, completed, writer,

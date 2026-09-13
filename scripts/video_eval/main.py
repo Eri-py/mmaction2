@@ -1,9 +1,6 @@
-from .cli import parse_args
 from .common import logger
-from .completed_pairs import load_completed_pairs
-from .config import load_config
-from .discovery import discover_videos
-from .output_csv import open_output_csv
+from .inputs import discover_videos, load_config, parse_args
+from .results import load_completed_pairs, open_output_csv
 from .runners import RUNNERS
 
 

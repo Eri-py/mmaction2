@@ -1,6 +1,6 @@
 from mmaction.apis import inference_recognizer, init_recognizer
+from ..checkpoints import resolve_checkpoint
 from ..common import ROOT, logger
-from ..resolve_checkpoint import resolve_checkpoint
 
 
 def run_recognizer(model_entry, videos, top_k, completed, writer, csv_file):

@@ -3,7 +3,7 @@ from urllib.parse import urlparse
 
 import torch
 
-from .common import CHECKPOINTS_DIR, ROOT, logger
+from ..common import CHECKPOINTS_DIR, ROOT, logger
 
 
 def cache_checkpoint_locally(checkpoint):

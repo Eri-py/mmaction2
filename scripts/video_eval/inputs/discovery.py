@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from .common import VIDEO_EXTENSIONS
+from ..common import VIDEO_EXTENSIONS
 
 
 def discover_videos(videos_dir):

@@ -1,7 +1,7 @@
 import csv
 from pathlib import Path
 
-from .common import CSV_FIELDS
+from ..common import CSV_FIELDS
 
 
 def open_output_csv(output_path):

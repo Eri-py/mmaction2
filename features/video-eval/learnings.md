@@ -486,3 +486,52 @@
   `.git`) returns nothing at all (not even under `features/video-eval/`, since none of the historical docs'
   *filenames* ever contained the old name — only their content does, which is intentionally left untouched as
   historical record).
+
+## Refactor — scripts/sweep/ -> scripts/video_eval/, grouped into inputs/results/checkpoints/ subfolders
+
+- Pure structural refactor, no behavior change: `scripts/sweep/` (flat, one function per file, plus the
+  already-grouped `runners/` subfolder) became `scripts/video_eval/` with three new subfolders —
+  `inputs/` (`cli.py`, `config.py`, `discovery.py`), `results/` (`completed_pairs.py`, `output_csv.py`),
+  `checkpoints/` (`metafile_lookup.py`, `checkpoint_cache.py`, `resolve_checkpoint.py`) — each with an
+  `__init__.py` re-exporting its public function(s), matching the pattern `runners/__init__.py` already used
+  for its `RUNNERS` registry. `common.py` and `main.py` stayed direct children of `scripts/video_eval/`.
+  Every function body/docstring/comment was moved verbatim via `git mv` + import-line edits only — no logic
+  touched.
+- The only import-path subtlety: files now one level deeper than before (`inputs/`, `results/`,
+  `checkpoints/`) need `from ..common import X` (double dot) where they used `from .common import X` (single
+  dot) pre-refactor, since `common.py` moved from being a direct sibling to being one level up. `runners/`
+  didn't need this since it was already one level deep before and after. `checkpoints/resolve_checkpoint.py`
+  keeps single-dot imports of its two siblings (`checkpoint_cache.py`, `metafile_lookup.py`) since both stayed
+  in the same folder as it.
+- `runners/recognizer.py` and `runners/skeleton.py` needed a cross-subpackage import change, not just a depth
+  change: `from ..resolve_checkpoint import resolve_checkpoint` became `from ..checkpoints import
+  resolve_checkpoint` — going through `checkpoints/__init__.py`'s re-export rather than reaching directly into
+  a file that no longer lives at that path. Their `from ..common import ROOT, logger` line was untouched
+  (same depth before and after).
+- `scripts/video_eval.py`'s entrypoint shim needed exactly one line changed (`from sweep.main import main` ->
+  `from video_eval.main import main`) and relies on the same `sys.path[0]`-prepending behavior as the previous
+  `sweep` rename did — confirmed this actually resolves correctly (not just assumed from the description) by
+  running `.venv/bin/python scripts/video_eval.py --help` for real: Python correctly resolves `import
+  video_eval` to the `scripts/video_eval/` *package* even though a sibling `scripts/video_eval.py` *file* also
+  exists and is the one being executed as `__main__` — the running script's own filename is never itself a
+  candidate for its own `import` statements to resolve to.
+- `isort` reordered `main.py`'s new `from .inputs import discover_videos, load_config, parse_args` and
+  `from .results import load_completed_pairs, open_output_csv` into alphabetical-within-line order
+  automatically — didn't hand-write the order, ran `isort` and let it settle rather than guessing, consistent
+  with the original `scripts/sweep/` refactor's own learnings entry on this point.
+- Full regression run after the move (`scripts/video_eval.py --videos-dir videos --config
+  scripts/video_eval_config.yaml --output <fresh csv>`, all 7 checkpoints already cached): exit 0, zero
+  `[ERROR]` lines, exactly 50 data rows (51 lines incl. header), `demo.mp4`/slowfast top-1 "arm wrestling" @
+  `1.0`, `backflip.mp4`/posec3d top-1 "(UB) (swing forward) double salto backward stretched" @
+  `0.1173364520072937` — byte-identical to every prior verified run under the old `scripts/sweep/` layout,
+  confirming the reorganization changed nothing behaviorally. Resumability re-verified too: re-running the
+  identical command against the same output CSV added zero rows and produced an MD5-identical file
+  (`7b47465e78d8a6894f027f3eef30317e` before and after), and zero "Downloading checkpoint" lines appeared on
+  the re-run. The missing-directory guard (`--videos-dir /tmp/does_not_exist_xyz`) still exits with the clean
+  `Videos directory not found: ...` message and no traceback, confirming `discovery.py`'s `SystemExit` guard
+  survived the deeper import path.
+- `flake8`, `isort --check-only`, `yapf --diff` all clean across every file under `scripts/` after running
+  `isort`/`yapf -i` once (no manual reformatting needed beyond what those tools produced themselves).
+- `scripts/video_eval_config.yaml` needed exactly the two `scripts/sweep/` -> `scripts/video_eval/` prefix
+  edits in its header's "authoritative implementation" pointer lines — no other content in the file changed
+  (confirmed the file still parses via `yaml.safe_load`, `top_k == 5`, 5 models).

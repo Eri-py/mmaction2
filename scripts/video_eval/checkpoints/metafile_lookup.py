@@ -2,7 +2,7 @@ from pathlib import Path
 
 import yaml
 
-from .common import ROOT
+from ..common import ROOT
 
 
 def lookup_checkpoint_in_metafile(config, dataset):
