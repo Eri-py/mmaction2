@@ -11,8 +11,8 @@ def parse_args():
         help='Folder of input videos (scanned non-recursively).')
     parser.add_argument(
         '--config',
-        default='scripts/model_sweep_config.yaml',
-        help='Path to the model-sweep YAML config.')
+        default='scripts/video_eval_config.yaml',
+        help='Path to the video-eval YAML config.')
     parser.add_argument(
         '--output', required=True, help='Path to the results CSV.')
     return parser.parse_args()

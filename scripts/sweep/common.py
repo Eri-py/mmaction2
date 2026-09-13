@@ -1,4 +1,4 @@
-"""Shared paths, constants, and logging setup for the model-sweep CLI."""
+"""Shared paths, constants, and logging setup for the video-eval CLI."""
 import logging
 import sys
 from pathlib import Path
@@ -17,4 +17,4 @@ logging.basicConfig(
     format='%(asctime)s [%(levelname)s] %(message)s',
     stream=sys.stderr,
 )
-logger = logging.getLogger('model_sweep')
+logger = logging.getLogger('video_eval')

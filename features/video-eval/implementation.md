@@ -106,15 +106,15 @@ pose estimator: https://download.openmmlab.com/mmpose/top_down/hrnet/hrnet_w32_c
 
 | Path | Action | Purpose | Why |
 |------|--------|---------|-----|
-| `scripts/model_sweep.py` | add | CLI script: config/video discovery, checkpoint resolution + local caching, both model runners, resumable CSV writer, main loop | Core deliverable |
-| `scripts/model_sweep_config.yaml` | add | Default YAML config listing the 5 required models with real checkpoint URLs and datasets, `top_k: 5` | Fulfills "swappable via config file" requirement and the acceptance criterion referencing "the default 5-model YAML config" |
+| `scripts/video_eval.py` | add | CLI script: config/video discovery, checkpoint resolution + local caching, both model runners, resumable CSV writer, main loop | Core deliverable |
+| `scripts/video_eval_config.yaml` | add | Default YAML config listing the 5 required models with real checkpoint URLs and datasets, `top_k: 5` | Fulfills "swappable via config file" requirement and the acceptance criterion referencing "the default 5-model YAML config" |
 
 ## Tasks
 
 ### Task 1 — Default YAML config
 
-- **Objective:** Define the model-sweep YAML schema and populate it with the 5 required models.
-- **Files:** `scripts/model_sweep_config.yaml`
+- **Objective:** Define the video-eval YAML schema and populate it with the 5 required models.
+- **Files:** `scripts/video_eval_config.yaml`
 - **Details:** Top level: `top_k: 5` and `models: [...]`. Each entry has `name` (unique id), `type`
   (`recognizer` or `skeleton_topdown`), `dataset`, and `device: cuda:0`. Give every entry in this **default**
   file an explicit `checkpoint` (this file is the reliable, reproducible deliverable the acceptance criteria
@@ -129,7 +129,7 @@ pose estimator: https://download.openmmlab.com/mmpose/top_down/hrnet/hrnet_w32_c
   - All config/label-map paths are relative to the repo root (mirrors how the two demo notebooks reference
     them via `ROOT / "configs/..."`).
 - **Success criteria:**
-  - `.venv/bin/python -c "import yaml; c = yaml.safe_load(open('scripts/model_sweep_config.yaml')); assert c['top_k'] == 5; assert len(c['models']) == 5"` runs without error.
+  - `.venv/bin/python -c "import yaml; c = yaml.safe_load(open('scripts/video_eval_config.yaml')); assert c['top_k'] == 5; assert len(c['models']) == 5"` runs without error.
   - Every `config`/`detector_config`/`pose_config`/`classifier_config`/`label_map` value, resolved relative to
     the repo root, points to a file that actually exists (spot-check with a shell loop or Python).
 
@@ -138,9 +138,9 @@ pose estimator: https://download.openmmlab.com/mmpose/top_down/hrnet/hrnet_w32_c
 - **Objective:** Build the non-model parts of the script: argument parsing, YAML loading, video discovery, and
   the resumable CSV read/append logic — everything needed except checkpoint resolution and actually running
   inference.
-- **Files:** `scripts/model_sweep.py`
+- **Files:** `scripts/video_eval.py`
 - **Details:**
-  - `argparse` CLI: `--videos-dir` (required), `--config` (default `scripts/model_sweep_config.yaml`),
+  - `argparse` CLI: `--videos-dir` (required), `--config` (default `scripts/video_eval_config.yaml`),
     `--output` (required, CSV path).
   - `ROOT = Path(__file__).resolve().parents[1]`; resolve every relative path from the YAML against `ROOT`.
   - Video discovery: list files directly inside `--videos-dir` (no recursion) whose suffix, lowercased, is one
@@ -160,13 +160,13 @@ pose estimator: https://download.openmmlab.com/mmpose/top_down/hrnet/hrnet_w32_c
   - A synthetic round-trip test (write a small CSV by hand with one `(video, model)` row already present,
     then call the resume-loading function against it) confirms that pair is correctly recognized as complete
     and a different pair is not.
-  - `.venv/bin/python scripts/model_sweep.py --help` runs and prints usage without error.
+  - `.venv/bin/python scripts/video_eval.py --help` runs and prints usage without error.
 
 ### Task 3 — Checkpoint resolution and local caching
 
 - **Objective:** Implement the shared helper both model runners will use to turn a model entry's checkpoint
   field (present or omitted) into a local file path under `checkpoints/`.
-- **Files:** `scripts/model_sweep.py`
+- **Files:** `scripts/video_eval.py`
 - **Details:**
   - A metafile-lookup function: given a config path (resolved against `ROOT`) and a `dataset` string, load the
     `metafile.yml` in that config's own directory (parse with PyYAML — see
@@ -200,7 +200,7 @@ pose estimator: https://download.openmmlab.com/mmpose/top_down/hrnet/hrnet_w32_c
 
 - **Objective:** Implement the `recognizer`-type model runner and wire it into the main per-model loop from
   Task 2, so `recognizer` entries in the YAML actually run.
-- **Files:** `scripts/model_sweep.py`
+- **Files:** `scripts/video_eval.py`
 - **Details:** Follow the pattern in `notebooks/demo_recognition.ipynb`: resolve the checkpoint via
   `resolve_checkpoint` from Task 3, then `init_recognizer(config, resolved_checkpoint, device=...)` once per
   model entry. Per video, `inference_recognizer(model, str(video_path))`, then
@@ -211,7 +211,7 @@ pose estimator: https://download.openmmlab.com/mmpose/top_down/hrnet/hrnet_w32_c
   log via the Task 2 logger and continue to the next video without writing any rows for that pair; on success,
   append `top_k` rows (rank 1..top_k, `dataset` = the entry's `dataset` value) and flush the CSV immediately.
 - **Success criteria:**
-  - Run `.venv/bin/python scripts/model_sweep.py --videos-dir videos --config <a temp YAML with only the
+  - Run `.venv/bin/python scripts/video_eval.py --videos-dir videos --config <a temp YAML with only the
     slowfast entry> --output <temp csv>` against the repo's existing `videos/` folder (contains `demo.mp4` and
     `backflip.mp4`).
   - The output CSV has exactly `top_k` (5) rows for each video processed, `dataset` = `Kinetics-400`, and
@@ -221,7 +221,7 @@ pose estimator: https://download.openmmlab.com/mmpose/top_down/hrnet/hrnet_w32_c
 ### Task 5 — Skeleton (top-down PoseC3D) runner
 
 - **Objective:** Implement the `skeleton_topdown`-type model runner and wire it into the main per-model loop.
-- **Files:** `scripts/model_sweep.py`
+- **Files:** `scripts/video_eval.py`
 - **Details:** Follow the pattern in `notebooks/demo_skeleton.ipynb`: resolve all three checkpoints via
   `resolve_checkpoint` from Task 3 (detector and pose checkpoints are always explicit in the entry, so this
   just runs the local-caching step for them; the classifier checkpoint may be resolved via metafile). Once per
@@ -250,7 +250,7 @@ pose estimator: https://download.openmmlab.com/mmpose/top_down/hrnet/hrnet_w32_c
   output matches every acceptance criterion in the spec.
 - **Files:** none changed
 - **Success criteria:**
-  - `.venv/bin/python scripts/model_sweep.py --videos-dir videos --config scripts/model_sweep_config.yaml
+  - `.venv/bin/python scripts/video_eval.py --videos-dir videos --config scripts/video_eval_config.yaml
     --output <temp csv>` completes without crashing.
   - The output CSV contains `top_k` (5) rows for each of the 5 models × 2 videos (`demo.mp4`, `backflip.mp4`)
     that succeed — 50 rows if all succeed — with `rank` running 1..5 per `(video_path, model_name)` pair.

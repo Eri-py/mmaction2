@@ -458,3 +458,31 @@
   `videos/` with the checkpoint already cached — exit 0, predictions byte-identical to previously recorded
   values (`backflip.mp4` top-1 "gymnastics tumbling" @ 0.6132610440254211, `demo.mp4` top-1 "arm wrestling" @
   1.0), confirming the comment addition has zero effect on actual behavior.
+
+## Rename — model_sweep -> video_eval
+
+- Pure rename, no behavior change: `git mv scripts/model_sweep.py scripts/video_eval.py`, `git mv
+  scripts/model_sweep_config.yaml scripts/video_eval_config.yaml`, `git mv features/model-sweep
+  features/video-eval`. The `scripts/sweep/` implementation package keeps its name (it was never named
+  `model_sweep` to begin with) — only two literal string edits inside it: `cli.py`'s `--config` default and
+  `common.py`'s logger name (`logging.getLogger('video_eval')`, cosmetic only — the log format string never
+  prints the logger name, so this has zero visible effect).
+- Several descriptive (non-path) occurrences of "model-sweep"/"model_sweep" were deliberately left as-is per
+  the rename task's own scope (e.g. `scripts/sweep/cli.py`'s `--config` help text, `scripts/sweep/common.py`'s
+  module docstring, `scripts/sweep/config.py`'s docstring, `scripts/video_eval_config.yaml`'s and
+  `scripts/video_eval.py`'s leading descriptive comment/docstring lines) — none of these are file-path
+  references, and the rename instructions were explicit that only literal path references and the two named
+  edits should change, not every occurrence of the word.
+- `scripts/video_eval_config.yaml`'s header comment never actually contained a `scripts/model_sweep.py` path
+  reference (its "authoritative implementation" pointer only ever named
+  `scripts/sweep/runners/{recognizer,skeleton}.py`) — double-checked with `grep` before editing rather than
+  applying a blind find-and-replace, so no phantom line was invented.
+- Full regression run after the rename (`scripts/video_eval.py --videos-dir videos --config
+  scripts/video_eval_config.yaml --output <fresh csv>`, all 7 checkpoints already cached): exit 0, 50 data
+  rows (51 lines incl. header), `demo.mp4`/slowfast top-1 "arm wrestling" @ 1.0, `backflip.mp4`/posec3d top-1
+  "(UB) (swing forward) double salto backward stretched" @ 0.1173364520072937 — byte-identical to prior
+  verified runs under the old name, confirming the rename changed nothing behaviorally.
+- Verified old names are fully gone: `find . -iname "*model_sweep*" -o -iname "*model-sweep*"` (excluding
+  `.git`) returns nothing at all (not even under `features/video-eval/`, since none of the historical docs'
+  *filenames* ever contained the old name — only their content does, which is intentionally left untouched as
+  historical record).
