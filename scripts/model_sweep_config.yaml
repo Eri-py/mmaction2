@@ -1,0 +1,50 @@
+# Default model-sweep config: 4 generic Kinetics-400 recognizers + top-down PoseC3D (FineGYM).
+# All paths are relative to the repo root; checkpoints are explicit here (auto-resolution from a
+# config's own metafile.yml is optional-checkpoint behavior exercised separately, not used by this
+# default file).
+top_k: 5
+
+models:
+  - name: slowfast
+    type: recognizer
+    config: configs/recognition/slowfast/slowfast_r50_8xb8-8x8x1-256e_kinetics400-rgb.py
+    checkpoint: https://download.openmmlab.com/mmaction/v1.0/recognition/slowfast/slowfast_r50_8xb8-8x8x1-256e_kinetics400-rgb/slowfast_r50_8xb8-8x8x1-256e_kinetics400-rgb_20220818-1cb6dfc8.pth
+    dataset: Kinetics-400
+    label_map: tools/data/kinetics/label_map_k400.txt
+    device: cuda:0
+
+  - name: swin
+    type: recognizer
+    config: configs/recognition/swin/swin-tiny-p244-w877_in1k-pre_8xb8-amp-32x2x1-30e_kinetics400-rgb.py
+    checkpoint: https://download.openmmlab.com/mmaction/v1.0/recognition/swin/swin-tiny-p244-w877_in1k-pre_8xb8-amp-32x2x1-30e_kinetics400-rgb/swin-tiny-p244-w877_in1k-pre_8xb8-amp-32x2x1-30e_kinetics400-rgb_20220930-241016b2.pth
+    dataset: Kinetics-400
+    label_map: tools/data/kinetics/label_map_k400.txt
+    device: cuda:0
+
+  - name: timesformer
+    type: recognizer
+    config: configs/recognition/timesformer/timesformer_divST_8xb8-8x32x1-15e_kinetics400-rgb.py
+    checkpoint: https://download.openmmlab.com/mmaction/v1.0/recognition/timesformer/timesformer_divST_8xb8-8x32x1-15e_kinetics400-rgb/timesformer_divST_8xb8-8x32x1-15e_kinetics400-rgb_20220815-a4d0d01f.pth
+    dataset: Kinetics-400
+    label_map: tools/data/kinetics/label_map_k400.txt
+    device: cuda:0
+
+  - name: videomae
+    type: recognizer
+    config: configs/recognition/videomae/vit-base-p16_videomae-k400-pre_16x4x1_kinetics-400.py
+    checkpoint: https://download.openmmlab.com/mmaction/v1.0/recognition/videomae/vit-base-p16_videomae-k400-pre_16x4x1_kinetics-400_20221013-860a3cd3.pth
+    dataset: Kinetics-400
+    label_map: tools/data/kinetics/label_map_k400.txt
+    device: cuda:0
+
+  - name: posec3d
+    type: skeleton_topdown
+    detector_config: configs/person_detector/faster-rcnn_r50_fpn_2x_coco_infer.py
+    detector_checkpoint: http://download.openmmlab.com/mmdetection/v2.0/faster_rcnn/faster_rcnn_r50_fpn_2x_coco/faster_rcnn_r50_fpn_2x_coco_bbox_mAP-0.384_20200504_210434-a5d8aa15.pth
+    pose_config: configs/skeleton_coord/td-hm_hrnet-w32_8xb64-210e_coco-256x192_infer.py
+    pose_checkpoint: https://download.openmmlab.com/mmpose/top_down/hrnet/hrnet_w32_coco_256x192-c78dce93_20200708.pth
+    classifier_config: configs/skeleton/posec3d/slowonly_r50_8xb16-u48-240e_gym-limb.py
+    classifier_checkpoint: https://download.openmmlab.com/mmaction/v1.0/skeleton/posec3d/slowonly_r50_8xb16-u48-240e_gym-limb/slowonly_r50_8xb16-u48-240e_gym-limb_20220815-2e6e3c5c.pth
+    dataset: FineGYM
+    label_map: tools/data/skeleton/label_map_gym99.txt
+    device: cuda:0
