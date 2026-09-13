@@ -99,7 +99,7 @@ None.
   run currently loses the remaining models to one bad entry.
 - **Fix:** Wrap the `runner(...)` call in `main`'s loop in `try/except Exception: logger.exception(...);
   continue`. Three lines, and the resumability logic already makes the retry story correct.
-- **Decision:** — _(pending)_
+- **Decision:** Accepted — addressed in "Address S2: isolate a model-level failure to that model, not the whole sweep"
 
 #### S3 — A pre-existing empty output file silently produces a headerless CSV
 

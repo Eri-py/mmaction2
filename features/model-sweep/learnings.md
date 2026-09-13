@@ -219,3 +219,35 @@
   `mmdet.apis`/`mmpose.apis` imports needed to sit in the third-party import block above the blank line
   separating it from the `mmaction`-namespace block, not below it) and one `yapf` reflow of the `pose_inference`
   call onto a single line once it dropped from 5 args across multiple lines to 5 args that fit on one line.
+
+## Fix S2 — A model-level failure aborts the whole sweep instead of skipping that model
+
+- Fix is exactly the 3-ish lines the finding described: in `main()`'s loop over `config['models']`, the
+  existing `runner(model_entry, videos, top_k, completed, writer, csv_file)` call is now wrapped in
+  `try/except Exception: logger.exception(...); continue`, logging which `model_entry['name']` failed. Nothing
+  in `run_recognizer`, `run_skeleton_topdown`, `resolve_checkpoint`, or `RUNNERS` was touched — this is purely
+  an outer safety net around the per-model call in `main()`.
+- `yapf --diff` initially wanted the wrapped `runner(...)` call collapsed back onto a single line once it moved
+  one indent level deeper inside the new `try:` block — the extra indent didn't push it over the line-length
+  limit after all, so yapf's authoritative reflow was simpler than my first hand-wrapped attempt (matches Task
+  2's learnings note: always defer to `yapf --diff`'s actual output rather than guessing the wrapping).
+- Verified against a real failure, not a synthetic exception: a two-model temp YAML (`broken_model` pointing at
+  a nonexistent config path `configs/recognition/slowfast/does_not_exist_config.py`, then a real `slowfast`
+  entry identical to the default config's, checkpoint already warm from earlier tasks) run against `videos/`.
+  Result: process exited 0 (confirmed via a separate run capturing `$?` directly, not just tailing output),
+  `broken_model`'s failure produced exactly one `[ERROR] Failed to run model 'broken_model', skipping to next
+  model` line via `logger.exception` with a full traceback rooted in `mmengine.Config.fromfile` raising
+  `FileNotFoundError` on the bad path (confirming the crash happens exactly where S2 said — outside any
+  per-video try, at `init_recognizer`'s config-loading step, since a checkpoint URL was given explicitly so
+  `resolve_checkpoint` itself didn't fail), and the sweep continued straight on to load and run `slowfast`,
+  writing all 10 correct rows (5 per video, matching Task 4's recorded `backflip.mp4`/`demo.mp4` predictions
+  exactly) to the output CSV.
+- Confirmed the fix is additive, not a replacement of the existing per-video error handling: re-ran Task 7's
+  corrupt-video regression test (single-model `slowfast`, a 20-byte truncated `backflip.mp4` renamed
+  `corrupt.mp4` plus an untouched `demo.mp4`, fresh temp folder) and got byte-for-byte the same behavior as
+  Task 7 recorded — exit 0, exactly one `[ERROR] Failed to run model 'slowfast' on video 'corrupt.mp4',
+  skipping` line (the runner's own inner per-video `except Exception` block, not the new outer one in `main()`,
+  since `slowfast` itself never raised past `run_recognizer`), and exactly 5 correct rows for the surviving
+  `demo.mp4` video. This confirms the new outer `try/except` in `main()` only catches what escapes a runner
+  entirely (checkpoint/config/model-load failures) and never intercepts or changes the runners' own
+  already-correct per-video skip-and-continue behavior.

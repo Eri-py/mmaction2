@@ -270,7 +270,13 @@ def main():
                 logger.error('Unknown model type %r for model %r, skipping',
                              model_entry['type'], model_entry['name'])
                 continue
-            runner(model_entry, videos, top_k, completed, writer, csv_file)
+            try:
+                runner(model_entry, videos, top_k, completed, writer, csv_file)
+            except Exception:
+                logger.exception(
+                    'Failed to run model %r, skipping to next model',
+                    model_entry['name'])
+                continue
     finally:
         csv_file.close()
 
