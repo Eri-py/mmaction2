@@ -103,3 +103,39 @@
   Task 3's own verification) — confirms `resolve_checkpoint`'s local-caching path works unchanged for
   checkpoints that are always-explicit (never go through the metafile-lookup branch), not just for the
   metafile-resolved case Task 3 exercised.
+
+## Task 6 — Full sweep integration run
+
+- First real run of all 5 models through the actual `scripts/model_sweep.py` entrypoint (previous tasks each
+  used a single-model temp YAML). Command: `.venv/bin/python scripts/model_sweep.py --videos-dir videos
+  --config scripts/model_sweep_config.yaml --output <temp csv>`. Completed cleanly end to end: 23:44:46 ->
+  00:03:59 (~19m13s wall clock), zero exceptions/tracebacks, zero rows skipped for either video across all 5
+  models. Output CSV: exactly 50 rows (5 models x 2 videos x top_k=5), `rank` running 1..5 for every
+  `(video_path, model_name)` pair (verified via pandas groupby), `dataset` correctly `Kinetics-400` for the 4
+  recognizer rows and `FineGYM` for all 10 `posec3d` rows, and every single `label` value found verbatim in its
+  matching label map file (0 mismatches checked programmatically against all 50 rows, not spot-checked).
+  `checkpoints/` ended up with all 7 required files (plus one unrelated pre-existing TSN checkpoint from an
+  earlier, unrelated session — harmless, not part of this feature).
+- **Checkpoint download time, not model inference, dominates a cold-cache run.** Of the ~19 minutes total, the
+  three new downloads (Swin ~127MB, TimeSformer ~486MB, VideoMAE ~173MB) accounted for the overwhelming
+  majority: Swin took ~1.5 min, TimeSformer alone took ~14.7 min (its 486MB is by far the largest of the 7
+  checkpoints this feature uses, and this network's throughput to the OpenMMLab CDN dipped as low as
+  ~1.3MB/s partway through), VideoMAE took ~2 min. All 5 models' actual inference (load + 2-video forward pass
+  each, plus the full detector->pose->classifier pipeline for posec3d) took only the remaining ~1 minute
+  combined. Worth knowing for anyone estimating a real 1000+-video sweep: the per-video cost that actually
+  scales with video count is small relative to the one-time checkpoint-download cost, so time estimates for a
+  full run should be based on the post-warm-cache per-video rate, not a cold-cache trial run's average.
+  RTX 5070 GPU memory/utilization were not a bottleneck at any point (headroom confirmed before the run: 1.3GB/
+  12GB used, 0% utilization from any other process).
+- **First real appearance of `ResourceWarning: unclosed file <...> Image.open(img).size` (PIL), one per frame,
+  during the posec3d pipeline's pose-estimation stage** — 34 occurrences in this run's log, all originating from
+  mmpose's own inference code computing image size via `Image.open(img).size` without a context manager (not
+  this feature's code; `run_skeleton_topdown` never opens a PIL Image directly). Cosmetic only — stderr noise,
+  no effect on correctness, no leaked file descriptor problem observed (frames live in a short-lived
+  `tempfile.TemporaryDirectory()` cleaned up per video regardless). Not something to patch here per CLAUDE.md's
+  guidance on minimal, localized fixes only for things actually broken; noting it so a future session doesn't
+  mistake it for a new bug in this feature's own code.
+- Confirms the full acceptance-criteria set from spec.md end to end for the first time with all 5 models
+  together: swappable-by-config (no code changed to run this), fixed `top_k` per pair, correct
+  dataset/label-space column per model, and per-model CSV filtering via pandas (`df[df.model_name==...]`)
+  isolating each model's predictions with correct columns.

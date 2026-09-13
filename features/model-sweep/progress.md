@@ -31,10 +31,18 @@
 - Notes: run_skeleton_topdown implemented in scripts/model_sweep.py (detector -> pose -> PoseC3D classifier, per-video tempdir). flake8/isort/yapf clean. Independently re-verified end-to-end: 5 rows for backflip.mp4, dataset=FineGYM, all labels confirmed real GYM99 entries via proper csv.DictReader parse. checkpoints/ now has 5 of 7 total checkpoints (detector + pose estimator newly downloaded this task).
 
 ## Task 6 — Full sweep integration run
-- Status: not started
-- Started: —
-- Completed: —
-- Notes: —
+- Status: completed
+- Started: 2026-09-12 23:43:57
+- Completed: 2026-09-13 00:03:59
+- Notes: Ran `.venv/bin/python scripts/model_sweep.py --videos-dir videos --config
+  scripts/model_sweep_config.yaml --output <temp csv>` end to end against all 5 models and both repo videos
+  (~19m13s wall clock, dominated by cold-cache checkpoint downloads for swin/timesformer/videomae — see
+  learnings.md). No script changes made (task scope was verification only). Result: 50/50 rows (5 models x 2
+  videos x top_k=5), rank 1..5 per (video_path, model_name) verified via pandas groupby, dataset correct
+  (Kinetics-400 for the 4 recognizers, FineGYM for posec3d), every label value confirmed present in its label
+  map file, zero exceptions/failed pairs, checkpoints/ contains all 7 required files. Per-model pandas
+  filtering verified for posec3d and videomae (shown correct/isolated). No bugs found in model_sweep.py or
+  model_sweep_config.yaml.
 
 ## Task 7 — Regression test run: error handling, resumability, and checkpoint reuse
 - Status: not started
