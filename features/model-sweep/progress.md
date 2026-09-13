@@ -45,7 +45,7 @@
   model_sweep_config.yaml.
 
 ## Task 7 — Regression test run: error handling, resumability, and checkpoint reuse
-- Status: not started
-- Started: —
-- Completed: —
-- Notes: —
+- Status: completed
+- Started: 2026-09-13 00:07:19
+- Completed: 2026-09-13 00:11:25
+- Notes: Verification-only (no code changes). Independently re-verified by orchestrator: corrupt-file run exits 0, logs exactly one error, writes only the working video's 5 correct rows; resumability re-run produces byte-identical CSV (MD5 match) and leaves checkpoint mtimes unchanged (no re-download). All 7 plan tasks now complete.

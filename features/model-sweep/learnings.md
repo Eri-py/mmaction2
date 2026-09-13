@@ -139,3 +139,36 @@
   together: swappable-by-config (no code changed to run this), fixed `top_k` per pair, correct
   dataset/label-space column per model, and per-model CSV filtering via pandas (`df[df.model_name==...]`)
   isolating each model's predictions with correct columns.
+
+## Task 7 — Regression test run: error handling, resumability, checkpoint reuse
+
+- Warm-cache full 5-model x 2-video run (all 7 checkpoints already cached from Tasks 3-6) took ~66s wall
+  clock, matching Task 6's ~68s warm-cache estimate almost exactly — confirms cold-cache download time, not
+  inference, was the entire story behind Task 6's ~19-minute run, per that task's own learnings entry.
+- Re-running the identical command against the same populated `--output` CSV is fast but **not free**: it
+  still took ~5.5s, not near-zero, because `run_recognizer`/`run_skeleton_topdown` call `resolve_checkpoint`
+  and `init_recognizer` (and, for skeleton_topdown, load the detector/pose/classifier) *before* the
+  per-video `if key in completed: continue` check — every model still gets fully loaded onto the GPU even
+  when every video for it is already done. Confirmed via stderr on the resumed run: zero "Downloading
+  checkpoint" lines and zero tracebacks, only the expected "Found N video(s)" info line and an unrelated
+  `torch.meshgrid` deprecation warning — so the resume behavior itself is correct, it just isn't
+  instantaneous. Worth knowing for anyone tuning a 1000+-video sweep's resume-after-interruption latency
+  expectations: the fixed per-model load cost recurs on every invocation regardless of how much/little work
+  is actually left to do.
+- Verified resumability is exact, not just "close enough": re-run's output CSV was byte-for-byte identical
+  (matching MD5) to the pre-re-run copy, `diff` empty, still exactly 50 data rows (51 lines incl. header).
+  All 8 files under `checkpoints/` (7 required + 1 unrelated pre-existing TSN checkpoint) had bit-identical
+  `stat -c %Y` mtimes before and after the re-run.
+- Corrupt-file test (single-model `slowfast` config, a byte-truncated 20-byte copy of `backflip.mp4` plus an
+  untouched copy of `demo.mp4` in a fresh temp folder): run exited 0, produced exactly 5 rows (only for the
+  working video, `rank` 1-5), and logged exactly one `[ERROR] Failed to run model 'slowfast' on video
+  'corrupt.mp4', skipping` line via `logger.exception` with a full traceback rooted in
+  `inference_recognizer` failing to decode the truncated file — decode failure surfaces as a normal Python
+  exception from deep inside the recognizer call, not a crash or hang, so the existing blanket
+  `except Exception` in both runners' per-video try block is sufficient without any special-casing for
+  corrupt/undecodable video files specifically. The working video's top-1 prediction ("arm wrestling",
+  1.0) matched Task 4's own recorded result for `demo.mp4` exactly, confirming the surviving row is
+  actually correct, not just present.
+- No code or config in the repo needed to change for this task (confirmed via `git status`/`git diff
+  --stat` showing only the pre-existing `progress.md` edit) — this was a pure verification task against the
+  already-complete Task 6 implementation, as the plan specified.
