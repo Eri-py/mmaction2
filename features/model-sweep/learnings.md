@@ -360,6 +360,42 @@
   fields, and testing `det_score_thr`'s override already proves `model_entry.get(...)` reaches this call site
   correctly for both keyword arguments).
 
+## Refactor — split scripts/model_sweep.py into scripts/sweep/ (one function per file)
+
+- Pure structural refactor, no behavior change: `scripts/model_sweep.py` (~290 lines, 11 functions) became a
+  4-line entrypoint shim (`from sweep.main import main`) plus `scripts/sweep/` with one function per file
+  (`common.py`, `cli.py`, `config.py`, `discovery.py`, `completed_pairs.py`, `output_csv.py`,
+  `metafile_lookup.py`, `checkpoint_cache.py`, `resolve_checkpoint.py`, `main.py`, and `runners/recognizer.py`
+  / `runners/skeleton.py` behind a `runners/__init__.py` registry dict). Every function body, docstring, and
+  comment was copied verbatim from the pre-refactor file, including the review-driven fixes already baked in
+  (building `detector_model`/`pose_model` once outside the video loop, `open_output_csv`'s file-size check,
+  building `rows` as a list before `writerows`, `.get()` on optional checkpoint/threshold fields).
+- `common.py`'s `ROOT` needed `parents[2]` instead of the old file's `parents[1]`, since it now lives one
+  directory deeper (`scripts/sweep/common.py` vs. `scripts/model_sweep.py`).
+- The entrypoint shim relies on Python's own `sys.path[0]` behavior (the invoked script's directory is
+  auto-prepended) — running `python scripts/model_sweep.py` puts `scripts/` on `sys.path`, so `from sweep.main
+  import main` resolves to `scripts/sweep/`. No `sys.path` manipulation needed in the shim itself.
+- `isort` only needed to fix two files (`runners/recognizer.py`, `runners/skeleton.py`) — it moved the new
+  `from ..common import ...` / `from ..resolve_checkpoint import ...` relative imports below the third-party
+  block (`mmaction`/`mmdet`/`mmpose`/`torch`) with a blank line separating them, matching this repo's existing
+  import-grouping convention. `flake8`/`isort --check-only`/`yapf --diff` were all clean after that on every
+  file under `scripts/`.
+- Verified byte-for-byte identical behavior post-refactor, not just "it ran": full 5-model x 2-video warm-cache
+  sweep (all 7 checkpoints already cached) took 1m15s (matches the pre-refactor Task 7 warm-cache benchmark of
+  ~66s within noise), exited 0 with zero `[ERROR]` lines, produced exactly 50 data rows (10 per model, 25 per
+  video), and reproduced the exact recorded values from earlier learnings entries to full float precision:
+  `demo.mp4`/slowfast top-1 "arm wrestling" @ `1.0`, `backflip.mp4`/posec3d top-1 "(UB) (swing forward) double
+  salto backward stretched" @ `0.1173364520072937`. Also reconfirmed: `--help` output unchanged (same flags,
+  defaults, help text — `parse_args()` moved verbatim so this was never really at risk); re-running the same
+  command against the same output CSV added zero new rows and produced a byte-identical file (resumability and
+  `sys.path`-based `import sweep` both survived the move); `--videos-dir /tmp/does_not_exist_xyz` still exits 1
+  with the clean `Videos directory not found: ...` message and no traceback (N3's fix, relocated to
+  `discovery.py`, still fires).
+- `scripts/model_sweep_config.yaml` needed exactly one comment-line update (the header's "authoritative
+  implementation" pointer, now naming `scripts/sweep/runners/recognizer.py` and
+  `scripts/sweep/runners/skeleton.py` instead of the old single-file path) — no data lines changed, confirmed
+  via `yaml.safe_load` still returning `top_k == 5` and 5 models.
+
 ## Fix N3 — `--videos-dir` pointing at a missing directory produces a raw traceback
 
 - Fix matched the finding's suggested shape exactly: in `discover_videos`, right after `videos_dir =

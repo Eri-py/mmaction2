@@ -3,8 +3,9 @@
 # config's own metafile.yml is optional-checkpoint behavior exercised separately, not used by this
 # default file).
 #
-# Schema (authoritative implementation: scripts/model_sweep.py; see run_recognizer and
-# run_skeleton_topdown for exactly what each field is used for):
+# Schema (authoritative implementation: scripts/sweep/runners/recognizer.py and
+# scripts/sweep/runners/skeleton.py; see run_recognizer and run_skeleton_topdown for
+# exactly what each field is used for):
 #
 # top_k: int, optional, default 5. Number of ranked predictions written per (video, model) pair.
 #
