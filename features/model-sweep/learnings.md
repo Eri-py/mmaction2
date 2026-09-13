@@ -30,3 +30,29 @@
   (`Path.name`), matching what actually gets written to the CSV — `discover_videos` returns full `Path` objects
   so the future runner code (Task 4/5) must use `.name` when writing rows and when checking `completed`, not
   the full path, or resume matching will silently never hit.
+
+## Task 3 — Checkpoint resolution and local caching
+
+- Metafile `Models[].Config` values are already repo-root-relative strings (e.g.
+  `configs/recognition/slowfast/slowfast_r50_8xb8-8x8x1-256e_kinetics400-rgb.py`), so the lookup function
+  compares `Path(m['Config']).as_posix()` against the input config resolved-then-rebased to
+  `relative_to(ROOT).as_posix()`, rather than comparing absolute paths — keeps the match working regardless of
+  how the caller spelled the input path (relative to cwd, absolute, etc.), as long as it's actually inside the
+  repo.
+- Some metafiles (e.g. slowfast's) have multiple `Models` entries whose `Config` differs but could share a
+  directory's single `metafile.yml`; filtered to matches on `Config` first, *then* checked `Results[].Dataset`
+  within only those matches — checking dataset across all `Models` in the file first would have let an
+  unrelated config's dataset silently satisfy the match.
+- `torch.hub.download_url_to_file` prints its own tqdm progress bar straight to stderr with no way to silence
+  it via the function's own kwargs (no `progress=False` in the installed torch version's signature actually
+  suppresses it here) — left as-is since this is a one-off sweep script run interactively, not a concern worth
+  extra plumbing for.
+- Used `urllib.parse.urlparse(...).scheme` to detect `http(s)://` rather than `str.startswith('http')` — mainly
+  so the basename comes from `Path(parsed.path).name` (the URL's path component only), immune to a query string
+  or fragment ever being appended to a checkpoint URL down the line.
+- Verified end-to-end against the real network: `lookup_checkpoint_in_metafile` on the SlowFast K400 config
+  returns exactly the URL in the plan; the same call with `dataset="FineGYM"` raises `ValueError` naming the
+  actually-available dataset(s) rather than a bare `KeyError`; `resolve_checkpoint` on the PoseC3D
+  gym-limb classifier URL downloads once to `checkpoints/slowonly_r50_8xb16-u48-240e_gym-limb_20220815-2e6e3c5c.pth`
+  (confirmed via file's own mtime) and a second immediate call returns the identical path with an unchanged
+  mtime (no re-download).

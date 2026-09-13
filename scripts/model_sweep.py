@@ -8,10 +8,14 @@ import csv
 import logging
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
+import torch
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
+
+CHECKPOINTS_DIR = ROOT / 'checkpoints'
 
 VIDEO_EXTENSIONS = {'.mp4', '.avi', '.mov', '.mkv'}
 
@@ -78,6 +82,66 @@ def open_output_csv(output_path):
         writer.writeheader()
         f.flush()
     return f, writer
+
+
+def lookup_checkpoint_in_metafile(config, dataset):
+    """Find the Weights URL for `config` trained on `dataset` in its
+    directory's own metafile.yml (mmaction2 model-zoo format)."""
+    config = Path(config).resolve()
+    metafile_path = config.parent / 'metafile.yml'
+    if not metafile_path.exists():
+        raise FileNotFoundError(
+            f'No metafile.yml found next to config {config} - a checkpoint '
+            'must be given explicitly for configs without mmaction2 model '
+            'metadata.')
+    with open(metafile_path, 'r') as f:
+        metafile = yaml.safe_load(f)
+
+    config_rel = config.relative_to(ROOT).as_posix()
+    matches = [
+        m for m in metafile.get('Models', [])
+        if Path(m['Config']).as_posix() == config_rel
+    ]
+    if not matches:
+        raise ValueError(
+            f'No entry for config {config_rel!r} found in {metafile_path}.')
+
+    for model_meta in matches:
+        datasets = [r['Dataset'] for r in model_meta.get('Results', [])]
+        if any(d.lower() == dataset.lower() for d in datasets):
+            return model_meta['Weights']
+
+    available = sorted(
+        {r['Dataset']
+         for m in matches
+         for r in m.get('Results', [])})
+    raise ValueError(
+        f'No result for dataset {dataset!r} found for config {config_rel!r} '
+        f'in {metafile_path}. Available dataset(s): {available}.')
+
+
+def cache_checkpoint_locally(checkpoint):
+    """Return a local path for `checkpoint`, downloading it into
+    checkpoints/ first if it's a URL not already cached there."""
+    parsed = urlparse(str(checkpoint))
+    if parsed.scheme in ('http', 'https'):
+        CHECKPOINTS_DIR.mkdir(parents=True, exist_ok=True)
+        local_path = CHECKPOINTS_DIR / Path(parsed.path).name
+        if not local_path.exists():
+            logger.info('Downloading checkpoint %s -> %s', checkpoint,
+                        local_path)
+            torch.hub.download_url_to_file(str(checkpoint), str(local_path))
+        return str(local_path)
+    return str((ROOT / checkpoint).resolve())
+
+
+def resolve_checkpoint(checkpoint, config, dataset):
+    """Turn a model entry's checkpoint field (present or omitted) into a
+    local file path under checkpoints/, resolving it from the config's own
+    metafile.yml first if omitted."""
+    if checkpoint is None:
+        checkpoint = lookup_checkpoint_in_metafile(config, dataset)
+    return cache_checkpoint_locally(checkpoint)
 
 
 def run_recognizer(model_entry, videos, top_k, completed, writer, csv_file):

@@ -13,10 +13,10 @@
 - Notes: scripts/model_sweep.py created (CLI, discovery, resumable CSV I/O, RUNNERS dispatch stubs for Task 4/5). flake8/isort/yapf clean; all success criteria independently re-verified by orchestrator.
 
 ## Task 3 — Checkpoint resolution and local caching
-- Status: not started
-- Started: —
-- Completed: —
-- Notes: —
+- Status: completed
+- Started: 2026-09-12 23:28:15
+- Completed: 2026-09-12 23:30:48
+- Notes: Added lookup_checkpoint_in_metafile, cache_checkpoint_locally, resolve_checkpoint to scripts/model_sweep.py. flake8/isort/yapf clean; all 3 success criteria independently re-verified against the real network/filesystem by orchestrator (metafile lookup returns exact SlowFast URL, mismatched dataset raises ValueError, PoseC3D classifier checkpoint downloaded to checkpoints/ once and reused on second call with unchanged mtime).
 
 ## Task 4 — Recognizer runner (SlowFast / Swin / TimeSformer / VideoMAE)
 - Status: not started
