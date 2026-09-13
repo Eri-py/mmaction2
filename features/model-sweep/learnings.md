@@ -56,3 +56,26 @@
   gym-limb classifier URL downloads once to `checkpoints/slowonly_r50_8xb16-u48-240e_gym-limb_20220815-2e6e3c5c.pth`
   (confirmed via file's own mtime) and a second immediate call returns the identical path with an unchanged
   mtime (no re-download).
+
+## Task 4 — Recognizer runner
+
+- `pred_result.pred_score.topk(top_k)` (a `torch.Tensor.topk` call, unlike the notebook's manual
+  sort-by-`itemgetter` approach) returns a named tuple with `.indices`/`.values`, already sorted descending —
+  simpler than porting the notebook's `score_sorted = sorted(...)` pattern verbatim, and avoids the
+  `enumerate(range(len(pred_scores)))` indirection the notebook uses only because it hadn't discovered `topk`
+  yet at that point in the tutorial. `.tolist()` on each converts cleanly to plain Python ints/floats for the
+  CSV writer (rank is assigned via `enumerate(..., start=1)`, not read off the tensor).
+- The labels file has no other content to strip per-line beyond the newline `.splitlines()` already removes, so
+  `label_map.read_text().splitlines()` is equivalent to and shorter than the notebook's
+  `[line.strip() for line in label.read_text().splitlines()]` for `label_map_k400.txt` specifically (no
+  leading/trailing whitespace on any line) — used the shorter form here.
+- Confirmed end-to-end against real inference (SlowFast, K400, both repo videos): `backflip.mp4` top-1 is
+  "gymnastics tumbling" (0.61) and `demo.mp4` top-1 is "arm wrestling" (1.0) — both plausible for their content,
+  giving actual confidence the pipeline (not just the plumbing) works, not just that rows got written.
+- Confirmed resume path from Task 2 works correctly for this runner specifically: re-running the exact same
+  command against an already-populated output CSV logs no download (checkpoint already cached) and appends zero
+  new rows — `load_completed_pairs` keys on `(video_path.name, model_name)` exactly as `run_recognizer` writes
+  them, so the two line up.
+- `init_recognizer`'s `config` argument does NOT need `str(...)` despite `checkpoint` and video needing it —
+  passing a `pathlib.Path` config straight through worked fine in practice (matches CLAUDE.md's note that only
+  `checkpoint`/`video`/`out_path` are `str`-only, not every path-shaped argument in these APIs).

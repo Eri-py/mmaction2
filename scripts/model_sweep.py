@@ -13,6 +13,8 @@ from urllib.parse import urlparse
 import torch
 import yaml
 
+from mmaction.apis import inference_recognizer, init_recognizer
+
 ROOT = Path(__file__).resolve().parents[1]
 
 CHECKPOINTS_DIR = ROOT / 'checkpoints'
@@ -145,8 +147,37 @@ def resolve_checkpoint(checkpoint, config, dataset):
 
 
 def run_recognizer(model_entry, videos, top_k, completed, writer, csv_file):
-    """Run a `recognizer`-type model entry over videos. Filled in by Task 4."""
-    raise NotImplementedError
+    """Run a `recognizer`-type model entry (SlowFast/Swin/TimeSformer/
+    VideoMAE) over videos, appending top_k prediction rows per video."""
+    config_path = ROOT / model_entry['config']
+    checkpoint = resolve_checkpoint(
+        model_entry.get('checkpoint'), config_path, model_entry['dataset'])
+    model = init_recognizer(
+        config_path, checkpoint, device=model_entry['device'])
+    labels = (ROOT / model_entry['label_map']).read_text().splitlines()
+
+    for video_path in videos:
+        key = (video_path.name, model_entry['name'])
+        if key in completed:
+            continue
+        try:
+            pred_result = inference_recognizer(model, str(video_path))
+            topk = pred_result.pred_score.topk(top_k)
+        except Exception:
+            logger.exception('Failed to run model %r on video %r, skipping',
+                             model_entry['name'], video_path.name)
+            continue
+        for rank, (idx, score) in enumerate(
+                zip(topk.indices.tolist(), topk.values.tolist()), start=1):
+            writer.writerow({
+                'video_path': video_path.name,
+                'model_name': model_entry['name'],
+                'dataset': model_entry['dataset'],
+                'rank': rank,
+                'label': labels[idx],
+                'score': score,
+            })
+        csv_file.flush()
 
 
 def run_skeleton_topdown(model_entry, videos, top_k, completed, writer,
