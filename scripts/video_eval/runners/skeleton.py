@@ -76,12 +76,12 @@ def run_skeleton_topdown(model_entry, videos, top_k, completed, writer,
             'dataset': model_entry['dataset'],
             'rank': rank,
             'label': labels[idx],
-            'score': score,
+            'score': round(score, 5),
         } for rank, (idx, score) in enumerate(
             zip(topk.indices.tolist(), topk.values.tolist()), start=1)]
         writer.writerows(rows)
         csv_file.flush()
-        logger.info('[%s] %d/%d %s -> %s (%.4f)', model_entry['name'], i,
+        logger.info('[%s] %d/%d %s -> %s (%.5f)', model_entry['name'], i,
                     len(pending), video_path.name, rows[0]['label'],
                     rows[0]['score'])
         succeeded += 1
