@@ -273,3 +273,32 @@
   touches `open_output_csv`'s header-writing decision, not the reading side.
 - Quality gate: `flake8`, `isort --check-only`, `yapf --diff` on `scripts/model_sweep.py` all clean (exit 0,
   no diff).
+
+## Fix S4 — Per-row `writerow` loop left a pair vulnerable to a mid-write interrupt
+
+- Fix matched the finding exactly, applied identically in both `run_recognizer` and `run_skeleton_topdown`: the
+  `for rank, (idx, score) in enumerate(...): writer.writerow({...})` loop became a list comprehension building
+  all `top_k` row dicts (`rows = [{...} for rank, (idx, score) in enumerate(...)]`), followed by a single
+  `writer.writerows(rows)` then the existing `csv_file.flush()`. No other lines in either function changed —
+  the `except Exception`/`continue` per-video error handling above the row-building code, and the `csv_file.flush()`
+  call after it, are both untouched, so a raised exception during inference still skips row-writing entirely
+  (nothing to make interruptible was ever reachable in that path to begin with) and the flush still happens
+  once per completed video exactly as before.
+  Note: this narrows but doesn't eliminate the interrupt window S4 is
+  about — a `KeyboardInterrupt` landing inside the `writerows(rows)` call itself (a single C-level loop over an
+  already-fully-built Python list) is far less likely than landing between two separate Python-level
+  `writerow` calls with unrelated work source-side, but `csv.DictWriter.writerows` is not documented as atomic
+  against arbitrary interrupts. This matches the finding's own accepted fix exactly, so no gap beyond what
+  the review already scoped.
+- Verified the refactor is output-preserving, not just lint-clean, by re-running both runners against
+  already-cached checkpoints and diffing against numbers recorded in earlier learnings entries rather than
+  just "no traceback": single-model `slowfast` temp YAML against `videos/` reproduced Task 4's exact recorded
+  predictions (`backflip.mp4` top-1 "gymnastics tumbling" @ 0.6132610440254211, `demo.mp4` top-1
+  "arm wrestling" @ 1.0); single-model `posec3d` temp YAML against `videos/` reproduced Fix S1's exact recorded
+  `backflip.mp4` top-1 ("(UB) (swing forward) double salto backward stretched" @ 0.1173364520072937) to full
+  float precision, plus 5 ranked rows for `demo.mp4` with plausible GYM99 labels. Both runs exited 0 with zero
+  `[ERROR]` lines, confirming `writerows` on a list of dicts produces byte-identical CSV content to the
+  equivalent sequence of `writerow` calls (as expected, since `csv.DictWriter.writerows` is documented as
+  simply calling `writerow` for each item in its argument, just without yielding back to Python between rows).
+- Quality gate: `flake8`, `isort --check-only`, `yapf --diff` on `scripts/model_sweep.py` all clean (exit 0,
+  no diff) — no reflow needed beyond the list-comprehension shape written directly.

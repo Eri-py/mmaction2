@@ -172,16 +172,16 @@ def run_recognizer(model_entry, videos, top_k, completed, writer, csv_file):
             logger.exception('Failed to run model %r on video %r, skipping',
                              model_entry['name'], video_path.name)
             continue
-        for rank, (idx, score) in enumerate(
-                zip(topk.indices.tolist(), topk.values.tolist()), start=1):
-            writer.writerow({
-                'video_path': video_path.name,
-                'model_name': model_entry['name'],
-                'dataset': model_entry['dataset'],
-                'rank': rank,
-                'label': labels[idx],
-                'score': score,
-            })
+        rows = [{
+            'video_path': video_path.name,
+            'model_name': model_entry['name'],
+            'dataset': model_entry['dataset'],
+            'rank': rank,
+            'label': labels[idx],
+            'score': score,
+        } for rank, (idx, score) in enumerate(
+            zip(topk.indices.tolist(), topk.values.tolist()), start=1)]
+        writer.writerows(rows)
         csv_file.flush()
 
 
@@ -234,16 +234,16 @@ def run_skeleton_topdown(model_entry, videos, top_k, completed, writer,
             logger.exception('Failed to run model %r on video %r, skipping',
                              model_entry['name'], video_path.name)
             continue
-        for rank, (idx, score) in enumerate(
-                zip(topk.indices.tolist(), topk.values.tolist()), start=1):
-            writer.writerow({
-                'video_path': video_path.name,
-                'model_name': model_entry['name'],
-                'dataset': model_entry['dataset'],
-                'rank': rank,
-                'label': labels[idx],
-                'score': score,
-            })
+        rows = [{
+            'video_path': video_path.name,
+            'model_name': model_entry['name'],
+            'dataset': model_entry['dataset'],
+            'rank': rank,
+            'label': labels[idx],
+            'score': score,
+        } for rank, (idx, score) in enumerate(
+            zip(topk.indices.tolist(), topk.values.tolist()), start=1)]
+        writer.writerows(rows)
         csv_file.flush()
 
 

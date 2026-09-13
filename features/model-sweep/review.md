@@ -123,7 +123,7 @@ None.
   rows per successful pair" criterion. Narrow window, but a 1000-video sweep is expected to be interrupted.
 - **Fix:** Build the row dicts into a list, then `writer.writerows(rows)` followed by `csv_file.flush()`, in
   both runners. The whole block then lands in the buffer in one call.
-- **Decision:** — _(pending)_
+- **Decision:** Accepted — addressed in "Address S4: build all of a video's rows before writing, not one at a time"
 
 ## Nitpicks
 
