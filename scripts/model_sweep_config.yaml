@@ -2,6 +2,44 @@
 # All paths are relative to the repo root; checkpoints are explicit here (auto-resolution from a
 # config's own metafile.yml is optional-checkpoint behavior exercised separately, not used by this
 # default file).
+#
+# Schema (authoritative implementation: scripts/model_sweep.py; see run_recognizer and
+# run_skeleton_topdown for exactly what each field is used for):
+#
+# top_k: int, optional, default 5. Number of ranked predictions written per (video, model) pair.
+#
+# models: list of model entries. Every entry needs a `type` of `recognizer` or `skeleton_topdown`,
+# which selects which fields below are required.
+#
+#   type: recognizer  (plain RGB action recognition, e.g. SlowFast/Swin/TimeSformer/VideoMAE)
+#     name        - required. Identifies the model in the output CSV's model_name column and in
+#                   resume tracking (matched against existing (video_path, model_name) CSV rows).
+#     config      - required. Path to an mmaction2 recognizer config.
+#     checkpoint  - optional. Local path or http(s) URL. If omitted, resolved by looking up
+#                   `config`'s own metafile.yml for a Results entry whose Dataset matches
+#                   `dataset` below (case-insensitive), and downloading/caching that Weights URL
+#                   into checkpoints/.
+#     dataset     - required. Written to the output CSV's dataset column, and used to pick the
+#                   right Results entry when resolving an omitted checkpoint above.
+#     label_map   - required. Path to a newline-delimited label file (line index == class index).
+#     device      - required. e.g. cuda:0 or cpu.
+#
+#   type: skeleton_topdown  (person detection -> pose estimation -> PoseC3D classification)
+#     name                  - required, as above.
+#     detector_config       - required. Path to the person-detector config.
+#     detector_checkpoint   - optional, resolved from detector_config's metafile.yml if omitted
+#                             (same dataset-lookup rule as `checkpoint` above).
+#     pose_config           - required. Path to the top-down pose-estimator config.
+#     pose_checkpoint       - optional, resolved from pose_config's metafile.yml if omitted.
+#     classifier_config     - required. Path to the PoseC3D skeleton-classifier config.
+#     classifier_checkpoint - optional, resolved from classifier_config's metafile.yml if omitted.
+#     dataset               - required, as above (also the dataset used for all three metafile
+#                             lookups above).
+#     label_map             - required, as above.
+#     device                - required, as above.
+#     det_score_thr         - optional, default 0.9. Minimum detector confidence score kept
+#                             before handing detections to pose estimation.
+#     det_cat_id            - optional, default 0. Detector category id treated as "person".
 top_k: 5
 
 models:

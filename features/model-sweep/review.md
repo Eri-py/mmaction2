@@ -173,7 +173,7 @@ None.
   spec) are discoverable only by reading `model_sweep.py`.
 - **Fix:** Extend the existing header comment in `scripts/model_sweep_config.yaml` with a short field list per
   `type`, noting which fields are optional (`checkpoint`, `classifier_checkpoint`).
-- **Decision:** — _(pending)_
+- **Decision:** Accepted — addressed in "Address N5: document the YAML schema in the config file's header comment"
 
 ## Tests
 

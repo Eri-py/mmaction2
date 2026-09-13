@@ -399,3 +399,26 @@
   confirm the comment-only change doesn't affect behavior: exit 0, predictions identical to Task 4's/Fix S4's
   recorded values (`backflip.mp4` top-1 "gymnastics tumbling" @ 0.6132610440254211, `demo.mp4` top-1
   "arm wrestling" @ 1.0).
+
+## Fix N5 — The YAML schema is undocumented anywhere a user would look
+
+- Read `run_recognizer` and `run_skeleton_topdown` in full (not the finding's own summary, since fields were
+  added after the finding was written) to build the authoritative field list: `recognizer` reads
+  `name`/`config`/`dataset`/`label_map`/`device` via bracket access (required) and `checkpoint` via `.get()`
+  (optional, resolved through `resolve_checkpoint` -> `lookup_checkpoint_in_metafile` when absent).
+  `skeleton_topdown` reads `detector_config`/`pose_config`/`classifier_config`/`dataset`/`label_map`/`device`
+  via bracket access (required) and `detector_checkpoint`/`pose_checkpoint`/`classifier_checkpoint` via
+  `.get()` (optional, same metafile-resolution rule, one lookup per config against the shared `dataset`
+  value) plus `det_score_thr`/`det_cat_id` via `.get(key, default)` (optional, defaults `0.9`/`0`, added by
+  Fix N2 after the finding was originally written). Top-level `top_k` is read via `config.get('top_k', 5)` in
+  `main()` (optional, default 5).
+- Fix is comment-only, extending the existing header paragraph in `scripts/model_sweep_config.yaml` with a
+  per-`type` field list (required vs. optional-with-default), exactly as the finding asked — no README added
+  (that's a separate, already-deferred decision this fix doesn't revisit) and no change to the `top_k:`/
+  `models:` data itself. `git diff` shows only added `#` lines above the existing `top_k: 5`.
+- Quality gate for a comment-only YAML change: confirmed
+  `yaml.safe_load(...)` still returns `top_k == 5` and `len(models) == 5` unchanged, then ran the real script
+  against a single-model (`slowfast`) temp YAML derived from the real config's own `slowfast` entry, over
+  `videos/` with the checkpoint already cached — exit 0, predictions byte-identical to previously recorded
+  values (`backflip.mp4` top-1 "gymnastics tumbling" @ 0.6132610440254211, `demo.mp4` top-1 "arm wrestling" @
+  1.0), confirming the comment addition has zero effect on actual behavior.
