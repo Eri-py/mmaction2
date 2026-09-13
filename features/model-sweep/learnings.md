@@ -328,3 +328,34 @@
   pose model, and classifier all initialized and ran without error, producing 5 well-formed top-k rows in the
   output CSV (top-1 "(UB) clear hip circle backward to handstand" @ 0.3563977777957916), confirming
   `.get(...)` returning the same present value behaves identically to bracket access when the key exists.
+
+## Fix N2 — `det_score_thr` and `det_cat_id` are hardcoded
+
+- Fix matched the finding exactly: in `run_skeleton_topdown`'s `detection_inference(...)` call, the literals
+  `det_score_thr=0.9, det_cat_id=0` became `det_score_thr=model_entry.get('det_score_thr', 0.9)` and
+  `det_cat_id=model_entry.get('det_cat_id', 0)`. No other lines changed; `scripts/model_sweep_config.yaml` was
+  left untouched (it doesn't set either field, so it exercises the default path).
+- Quality gate: `.venv/bin/python -m flake8 scripts/model_sweep.py`, `-m isort --check-only`, `-m yapf --diff`
+  all clean (exit 0, no diff/output) — no reflow needed since both lines stayed the same shape/length class.
+- Verified default behavior is byte-identical to before the fix: ran the real `posec3d` entry from
+  `scripts/model_sweep_config.yaml` (copied into a temp single-model YAML, no `det_score_thr`/`det_cat_id` set)
+  against `videos/` (both checkpoints already warm). Output matched two independently-recorded prior runs to
+  full float precision: `backflip.mp4` top-1 `(UB) (swing forward) double salto backward stretched` @
+  `0.1173364520072937` (matches Fix S1's and Fix N1's recorded value) and `demo.mp4` top-1 `(UB) clear hip
+  circle backward to handstand` @ `0.3563977777957916` (matches Fix N1's recorded value) — confirms
+  `model_entry.get(key, <same literal default>)` is behaviorally identical to the old hardcoded literal when
+  the key is absent, as expected.
+- Verified the override actually takes effect: built a temp YAML copying the same `posec3d` entry but adding
+  `det_score_thr: 0.999` (deliberately near-impossible for the Faster R-CNN detector to clear). Command:
+  `.venv/bin/python scripts/model_sweep.py --videos-dir videos --config <temp>.yaml --output <temp>.csv`. Exit
+  0, zero `[ERROR]`/exception lines (the pipeline degrades gracefully rather than crashing when detections are
+  filtered out — not this fix's concern either way). Both videos' predictions changed completely relative to
+  the default-threshold run: `backflip.mp4` top-1 flipped from `(UB) (swing forward) double salto backward
+  stretched` @ `0.117` to `(UB) transition flight from low bar to high bar` @ `0.1047`, and `demo.mp4` top-1
+  flipped from `(UB) clear hip circle backward to handstand` @ `0.356` to `(UB) giant circle backward` @
+  `0.1054` — every one of the 10 output rows differs from the default-threshold run's corresponding row in both
+  label and score. This is direct, concrete evidence `det_score_thr` is actually read from the YAML entry and
+  passed through to `detection_inference`, not silently ignored.
+- `det_cat_id` was not separately override-tested (the finding's fix is the same one-line pattern for both
+  fields, and testing `det_score_thr`'s override already proves `model_entry.get(...)` reaches this call site
+  correctly for both keyword arguments).

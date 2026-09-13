@@ -145,7 +145,7 @@ None.
   these two detection knobs — the ones most likely to need tuning on non-gymnastics footage — are the only
   pipeline parameters not exposed in the YAML.
 - **Fix:** Read them as `model_entry.get('det_score_thr', 0.9)` / `model_entry.get('det_cat_id', 0)`.
-- **Decision:** — _(pending)_
+- **Decision:** Accepted — addressed in "Address N2: make det_score_thr/det_cat_id configurable in the YAML"
 
 #### N3 — `--videos-dir` pointing at a missing directory produces a raw traceback
 

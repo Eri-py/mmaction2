@@ -222,8 +222,8 @@ def run_skeleton_topdown(model_entry, videos, top_k, completed, writer,
                     detector_model,
                     None,
                     frame_paths,
-                    det_score_thr=0.9,
-                    det_cat_id=0,
+                    det_score_thr=model_entry.get('det_score_thr', 0.9),
+                    det_cat_id=model_entry.get('det_cat_id', 0),
                     device=device)
                 torch.cuda.empty_cache()
                 pose_results, _ = pose_inference(
