@@ -13,6 +13,8 @@ from urllib.parse import urlparse
 
 import torch
 import yaml
+from mmdet.apis import init_detector
+from mmpose.apis import init_model as init_pose_model
 
 from mmaction.apis import (detection_inference, inference_recognizer,
                            inference_skeleton, init_recognizer, pose_inference)
@@ -201,6 +203,9 @@ def run_skeleton_topdown(model_entry, videos, top_k, completed, writer,
         model_entry['dataset'])
     model = init_recognizer(
         classifier_config, classifier_checkpoint, device=device)
+    detector_model = init_detector(
+        detector_config, detector_checkpoint, device=device)
+    pose_model = init_pose_model(pose_config, pose_checkpoint, device=device)
     labels = (ROOT / model_entry['label_map']).read_text().splitlines()
 
     for video_path in videos:
@@ -213,19 +218,15 @@ def run_skeleton_topdown(model_entry, videos, top_k, completed, writer,
                     str(video_path), short_side=480, out_dir=tmp_dir)
                 h, w, _ = frames[0].shape
                 det_results, _ = detection_inference(
-                    detector_config,
-                    detector_checkpoint,
+                    detector_model,
+                    None,
                     frame_paths,
                     det_score_thr=0.9,
                     det_cat_id=0,
                     device=device)
                 torch.cuda.empty_cache()
                 pose_results, _ = pose_inference(
-                    pose_config,
-                    pose_checkpoint,
-                    frame_paths,
-                    det_results,
-                    device=device)
+                    pose_model, None, frame_paths, det_results, device=device)
                 torch.cuda.empty_cache()
                 pred_result = inference_skeleton(model, pose_results, (h, w))
                 topk = pred_result.pred_score.topk(top_k)

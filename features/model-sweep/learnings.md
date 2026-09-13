@@ -172,3 +172,50 @@
 - No code or config in the repo needed to change for this task (confirmed via `git status`/`git diff
   --stat` showing only the pre-existing `progress.md` edit) — this was a pure verification task against the
   already-complete Task 6 implementation, as the plan specified.
+
+## Fix S1 — PoseC3D runner rebuilding detector/pose models per video
+
+- Read `mmaction/apis/inference.py:171-234` (`detection_inference`) and `:237-279` (`pose_inference`)
+  directly to confirm the review finding before touching code. Both functions branch on
+  `isinstance(det_config/pose_config, nn.Module)`: if it's already a module, that object is used as-is and
+  `init_detector`/`init_model` is never called; otherwise they call `init_detector(config=det_config,
+  checkpoint=det_checkpoint, device=device)` / `init_model(pose_config, pose_checkpoint, device)` themselves.
+  Critically, on the `nn.Module` branch the `det_checkpoint`/`pose_checkpoint` positional parameters are
+  never referenced anywhere in either function body — confirmed by reading the full function, not just the
+  branch — so passing `None` for those parameters when passing a prebuilt module is completely safe, not a
+  latent validation risk.
+- Confirmed `from mmdet.apis import init_detector` and `from mmpose.apis import init_model` import cleanly in
+  this repo's `.venv` (both are already transitive deps used inside `mmaction/apis/inference.py` itself, just
+  not previously imported directly by `scripts/model_sweep.py`). Aliased mmpose's `init_model` to
+  `init_pose_model` on import since `scripts/model_sweep.py` already has an unrelated local `model` variable
+  (the classifier) in the same function and importing a second bare `init_model`-shaped name next to
+  `init_recognizer` reads better distinguished.
+- Both `init_detector`'s and `init_model`'s real signatures take `device` as a keyword (`device: str =
+  'cuda:0'`), confirmed via `inspect.signature` in `.venv` — matches how `run_skeleton_topdown` already calls
+  `init_recognizer(..., device=device)`, so no calling-convention surprises building the other two models the
+  same way.
+- Fix: in `run_skeleton_topdown`, `init_detector(detector_config, detector_checkpoint, device=device)` and
+  `init_pose_model(pose_config, pose_checkpoint, device=device)` are now called once per model entry
+  (immediately after the existing single `init_recognizer` call, before the video loop), and the per-video
+  `detection_inference`/`pose_inference` calls now pass the built `detector_model`/`pose_model` objects with
+  `None` in the checkpoint-path slot, instead of passing `detector_config`/`pose_config` paths (which is what
+  was causing every video to trigger a fresh `init_detector`/`init_model` call, and a fresh checkpoint read
+  from disk, inside those two functions).
+- Verification (single-model `posec3d`-only temp YAML, `videos/` folder, both checkpoints already warm from
+  earlier tasks so no download noise): run exited 0, produced exactly 10 rows (5 ranked rows x 2 videos), all
+  `dataset=FineGYM` with real GYM99 label strings. The log showed exactly **one** "Loads checkpoint by local
+  backend from path" line each for the classifier, detector, and pose checkpoints (3 total for a 2-video run)
+  — before the fix this would have been 3 (classifier once, since that was already built once) + 2x2 = 7, i.e.
+  the detector/pose lines would each have appeared once per video (2x each) instead of once total. This is
+  direct, concrete evidence the fix works, not an inferred one.
+- Numerical regression check: `backflip.mp4` top-1 came back as `(UB) (swing forward) double salto backward
+  stretched` at score `0.1173364520072937`, matching Task 5's recorded learnings entry ("an uneven-bars/double
+  salto label at only 0.117 confidence") to the same 3 decimal places recorded there — confirms building the
+  detector/pose models once instead of per-video does not change inference output, as expected, since both
+  functions still build/use the exact same architecture + checkpoint weights either way, only the call site
+  moved. (Task 5/6/7's learnings entries didn't record `demo.mp4`'s exact posec3d score for comparison, only
+  `backflip.mp4`'s; `backflip.mp4`'s match was the only direct number available to check against.)
+- Lint (`flake8`, `isort --check-only`, `yapf --diff`) all clean after one `isort` fixup (the two new
+  `mmdet.apis`/`mmpose.apis` imports needed to sit in the third-party import block above the blank line
+  separating it from the `mmaction`-namespace block, not below it) and one `yapf` reflow of the `pose_inference`
+  call onto a single line once it dropped from 5 args across multiple lines to 5 args that fit on one line.

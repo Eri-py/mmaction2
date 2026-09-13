@@ -87,7 +87,7 @@ None.
   `mmdet.apis`, `init_model` from `mmpose.apis`, both with the already-resolved local checkpoint paths), and
   pass those module objects in place of the config paths. The checkpoint arg is ignored on that branch, so
   pass the resolved path or `None`.
-- **Decision:** — _(pending)_
+- **Decision:** Accepted — addressed in "Address S1: init PoseC3D detector/pose once per model, not per video"
 
 #### S2 — A model-level failure aborts the whole sweep instead of skipping that model
 
