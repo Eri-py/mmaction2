@@ -26,6 +26,7 @@ CHECKPOINTS_DIR = ROOT / 'checkpoints'
 
 VIDEO_EXTENSIONS = {'.mp4', '.avi', '.mov', '.mkv'}
 
+# video_path is a basename only, so resume works regardless of --videos-dir.
 CSV_FIELDS = ['video_path', 'model_name', 'dataset', 'rank', 'label', 'score']
 
 logging.basicConfig(

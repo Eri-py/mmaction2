@@ -162,7 +162,7 @@ None.
   column name misleads anyone reading the CSV without the plan in hand.
 - **Fix:** Either rename to `video` / `video_name`, or note it in the YAML header comment. Renaming would
   invalidate any CSV already produced, so the comment is the cheaper option.
-- **Decision:** — _(pending)_
+- **Decision:** Accepted (comment only, not a rename) — addressed in "Address N4: document that video_path holds a basename"
 
 #### N5 — The YAML schema is undocumented anywhere a user would look
 

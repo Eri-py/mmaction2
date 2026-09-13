@@ -382,3 +382,20 @@
 - Verified the normal case is unaffected: `.venv/bin/python -c "... from model_sweep import discover_videos;
   print(discover_videos('videos'))"` still returns
   `[PosixPath('videos/backflip.mp4'), PosixPath('videos/demo.mp4')]`, unchanged from before the fix.
+
+## Fix N4 — `video_path` column contains a basename, not a path
+
+- Decision was comment-only, not a rename (a rename would invalidate any CSV already produced by earlier
+  tasks/fixes, breaking resumability for anyone holding one). Added a single-line comment directly above
+  `CSV_FIELDS` noting `video_path` is a basename, not a full path, so `--videos-dir`'s location doesn't matter
+  for resume. `CSV_FIELDS` itself, and every other line in the file, are untouched — `git diff` shows exactly
+  one added line.
+- Kept the comment under flake8's 79-char line limit (this repo has no flake8 config overriding the default,
+  confirmed via `grep max-line-length setup.cfg .flake8 tox.ini` finding nothing) — a first, more verbose
+  phrasing hit 92 chars and failed `flake8` (E501); shortened to 79.
+- Quality gate: `.venv/bin/python -m flake8`, `-m isort --check-only`, `-m yapf --diff` on
+  `scripts/model_sweep.py` all clean (exit 0, no diff/output).
+- Sanity-ran the real script (single-model `slowfast` temp YAML, `videos/`, checkpoint already cached) to
+  confirm the comment-only change doesn't affect behavior: exit 0, predictions identical to Task 4's/Fix S4's
+  recorded values (`backflip.mp4` top-1 "gymnastics tumbling" @ 0.6132610440254211, `demo.mp4` top-1
+  "arm wrestling" @ 1.0).
