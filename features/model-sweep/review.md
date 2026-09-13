@@ -153,7 +153,7 @@ None.
 - **Issue:** `iterdir()` raises `FileNotFoundError` / `NotADirectoryError` straight out of the CLI before
   anything is logged.
 - **Fix:** One `if not videos_dir.is_dir(): raise SystemExit(f'...')` guard in `main` or `discover_videos`.
-- **Decision:** — _(pending)_
+- **Decision:** Accepted — addressed in "Address N3: guard against a missing/invalid --videos-dir"
 
 #### N4 — The `video_path` column contains a basename, not a path
 

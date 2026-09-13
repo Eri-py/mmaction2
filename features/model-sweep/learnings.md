@@ -359,3 +359,26 @@
 - `det_cat_id` was not separately override-tested (the finding's fix is the same one-line pattern for both
   fields, and testing `det_score_thr`'s override already proves `model_entry.get(...)` reaches this call site
   correctly for both keyword arguments).
+
+## Fix N3 — `--videos-dir` pointing at a missing directory produces a raw traceback
+
+- Fix matched the finding's suggested shape exactly: in `discover_videos`, right after `videos_dir =
+  Path(videos_dir)` and before the `iterdir()` call, added `if not videos_dir.is_dir(): raise SystemExit(f'Videos
+  directory not found: {videos_dir}')`. `Path.is_dir()` returns `False` for both a nonexistent path and an
+  existing-but-non-directory path (e.g. a file), so one guard covers both cases the finding named
+  (`FileNotFoundError`/`NotADirectoryError`) without branching on which one applies. Nothing else in the
+  function or file changed.
+- Quality gate: `.venv/bin/python -m flake8 scripts/model_sweep.py`, `-m isort --check-only`, `-m yapf --diff`
+  all clean (exit 0, no diff/output).
+- Verified the missing-directory case end to end via the real CLI: `.venv/bin/python scripts/model_sweep.py
+  --videos-dir /tmp/definitely_does_not_exist_xyz --config scripts/model_sweep_config.yaml --output
+  /tmp/model_sweep_test_output.csv` printed exactly one line, `Videos directory not found:
+  /tmp/definitely_does_not_exist_xyz`, no Python traceback, and exited with code 1 (confirmed via `$?`) — a
+  clean CLI failure instead of a raw `FileNotFoundError` traceback out of `iterdir()`.
+- Also checked the "exists but is a file" branch the finding named alongside "doesn't exist": calling
+  `discover_videos('videos/demo.mp4')` directly raised `SystemExit('Videos directory not found:
+  videos/demo.mp4')` — confirms the single `is_dir()` guard catches both failure modes described in the
+  finding, not just the missing-path one exercised by the CLI-level test above.
+- Verified the normal case is unaffected: `.venv/bin/python -c "... from model_sweep import discover_videos;
+  print(discover_videos('videos'))"` still returns
+  `[PosixPath('videos/backflip.mp4'), PosixPath('videos/demo.mp4')]`, unchanged from before the fix.
