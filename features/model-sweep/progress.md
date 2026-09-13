@@ -7,10 +7,10 @@
 - Notes: scripts/model_sweep_config.yaml created with all 5 models (4 recognizer + posec3d skeleton_topdown), explicit checkpoints. Both success criteria verified by subagent.
 
 ## Task 2 — Script scaffolding: config loading, video discovery, resumable CSV I/O
-- Status: not started
-- Started: —
-- Completed: —
-- Notes: —
+- Status: completed
+- Started: 2026-09-12 23:25:57
+- Completed: 2026-09-12 23:28:01
+- Notes: scripts/model_sweep.py created (CLI, discovery, resumable CSV I/O, RUNNERS dispatch stubs for Task 4/5). flake8/isort/yapf clean; all success criteria independently re-verified by orchestrator.
 
 ## Task 3 — Checkpoint resolution and local caching
 - Status: not started
