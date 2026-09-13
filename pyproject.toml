@@ -30,11 +30,15 @@ dynamic = ["version", "dependencies", "optional-dependencies"]
 [project.urls]
 Homepage = "https://github.com/open-mmlab/mmaction2"
 
+[project.scripts]
+video-eval = "video_eval.main:main"
+
 [tool.setuptools]
 zip-safe = false
 include-package-data = true
 
 [tool.setuptools.packages.find]
+where = [".", "scripts"]
 exclude = ["configs", "tools", "demo"]
 
 [tool.setuptools.dynamic]

@@ -1,5 +1,9 @@
 import argparse
 
+from ..common import ROOT
+
+DEFAULT_CONFIG = ROOT / 'scripts' / 'video_eval_config.yaml'
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -11,8 +15,9 @@ def parse_args():
         help='Folder of input videos (scanned non-recursively).')
     parser.add_argument(
         '--config',
-        default='scripts/video_eval_config.yaml',
-        help='Path to the video-eval YAML config.')
+        default=str(DEFAULT_CONFIG),
+        help='Path to the video-eval YAML config '
+        f'(default: {DEFAULT_CONFIG}).')
     parser.add_argument(
         '--output', required=True, help='Path to the results CSV.')
     return parser.parse_args()
