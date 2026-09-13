@@ -128,8 +128,9 @@ work_dirs/
 # Pytorch
 *.pth
 
-# Local test video data for scripts/video_eval.py, not part of the repo
-/videos_test/
+# Local UCF101 test video data for scripts/video_eval.py, not part of the repo
+# (demo.mp4 and backflip.mp4 in this same folder ARE tracked - only these are not)
+/videos/v_*.mp4
 
 # Profile
 *.prof
