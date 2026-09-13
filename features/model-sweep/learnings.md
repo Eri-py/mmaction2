@@ -79,3 +79,27 @@
 - `init_recognizer`'s `config` argument does NOT need `str(...)` despite `checkpoint` and video needing it —
   passing a `pathlib.Path` config straight through worked fine in practice (matches CLAUDE.md's note that only
   `checkpoint`/`video`/`out_path` are `str`-only, not every path-shaped argument in these APIs).
+
+## Task 5 — Skeleton (top-down PoseC3D) runner
+
+- `detection_inference`/`pose_inference` accept `Path` configs and `resolve_checkpoint`'s plain-`str` return
+  directly (matching their real signatures noted in the task prompt) — no extra `str(...)`/`Path(...)` wrapping
+  needed beyond what `resolve_checkpoint` already returns, keeping this runner's checkpoint handling identical
+  in shape to `run_recognizer`'s single-checkpoint case, just called three times.
+- Used the `with tempfile.TemporaryDirectory() as tmp_dir:` form wrapping the *entire* per-video try block
+  (frame extraction through `inference_skeleton`), not just `frame_extract` — the frames are only needed
+  transiently for that one video's detection/pose/classification chain, so keeping the whole chain inside the
+  `with` means the directory is guaranteed cleaned up per video even on a mid-video exception, without a
+  separate `finally`.
+- Verified end-to-end against real inference (posec3d/FineGYM, `videos/` folder with both `backflip.mp4` and
+  `demo.mp4`): exactly 5 ranked rows per video, all 5 label strings for both videos found verbatim (via `grep
+  -F`) in `tools/data/skeleton/label_map_gym99.txt` — confirms the label-index mapping is correct, not just
+  that indices were produced. `backflip.mp4` top-1 is an uneven-bars/double-salto label at only 0.117
+  confidence (GYM99's labels are fine-grained gymnastics apparatus moves, so low top-1 confidence on a video
+  that isn't actually gymnastics footage is expected, unlike the K400 recognizers' higher-confidence top-1s in
+  Task 4).
+- This run downloaded the person-detector (~160MB) and pose-estimator (~110MB) checkpoints for real into
+  `checkpoints/` for the first time in this feature (the PoseC3D classifier checkpoint was already cached from
+  Task 3's own verification) — confirms `resolve_checkpoint`'s local-caching path works unchanged for
+  checkpoints that are always-explicit (never go through the metafile-lookup branch), not just for the
+  metafile-resolved case Task 3 exercised.

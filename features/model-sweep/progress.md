@@ -25,10 +25,10 @@
 - Notes: run_recognizer implemented in scripts/model_sweep.py. flake8/isort/yapf clean. Independently re-verified end-to-end against real SlowFast checkpoint + repo videos: 5 rows/video, dataset=Kinetics-400, real K400 labels (backflip.mp4->gymnastics tumbling, demo.mp4->arm wrestling@1.0 which matches the known canonical mmaction2 demo video label). Resume/no-redownload also confirmed.
 
 ## Task 5 — Skeleton (top-down PoseC3D) runner
-- Status: not started
-- Started: —
-- Completed: —
-- Notes: —
+- Status: completed
+- Started: 2026-09-12 23:35:59
+- Completed: 2026-09-12 23:43:36
+- Notes: run_skeleton_topdown implemented in scripts/model_sweep.py (detector -> pose -> PoseC3D classifier, per-video tempdir). flake8/isort/yapf clean. Independently re-verified end-to-end: 5 rows for backflip.mp4, dataset=FineGYM, all labels confirmed real GYM99 entries via proper csv.DictReader parse. checkpoints/ now has 5 of 7 total checkpoints (detector + pose estimator newly downloaded this task).
 
 ## Task 6 — Full sweep integration run
 - Status: not started
