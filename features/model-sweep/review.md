@@ -111,7 +111,7 @@ None.
   (`load_completed_pairs` then returns an empty set, or raises `KeyError: 'video_path'` once there is more
   than one row).
 - **Fix:** `is_new = not output_path.exists() or output_path.stat().st_size == 0`.
-- **Decision:** — _(pending)_
+- **Decision:** Accepted — addressed in "Address S3: treat a zero-byte output file as new (write header)"
 
 #### S4 — An interrupt mid-write can leave a pair with fewer than `top_k` rows, which resume then treats as complete
 

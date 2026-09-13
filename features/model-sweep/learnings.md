@@ -251,3 +251,25 @@
   `demo.mp4` video. This confirms the new outer `try/except` in `main()` only catches what escapes a runner
   entirely (checkpoint/config/model-load failures) and never intercepts or changes the runners' own
   already-correct per-video skip-and-continue behavior.
+
+## Fix S3 — Pre-existing empty output file silently produced a headerless CSV
+
+- Root cause matched the finding exactly: `open_output_csv`'s `is_new = not output_path.exists()` is `False`
+  for a zero-byte file (`Path.exists()` only checks presence, not size), so a `touch`ed/`> `-created empty
+  output file skipped `writer.writeheader()` entirely. Fix: `is_new = not output_path.exists() or
+  output_path.stat().st_size == 0`.
+- Reproduced the bug first on the pre-fix code: `touch`ed an empty CSV, ran `scripts/model_sweep.py` against it
+  with a single-model (`slowfast`) temp YAML config and a one-video temp folder (checkpoint already cached from
+  earlier tasks, so no download needed). Resulting file was exactly one headerless data row followed by four
+  more — `demo.mp4,slowfast,Kinetics-400,1,arm wrestling,1.0` as line 1, no header — confirming the finding's
+  described symptom byte-for-byte before touching any code.
+- After the one-line fix, re-ran the identical empty-file scenario: the file's first line is now exactly
+  `video_path,model_name,dataset,rank,label,score`, followed by the 5 data rows.
+- Re-checked the two cases the fix must not break: a genuinely-missing `--output` path still gets a fresh file
+  with a header (unchanged, since `not output_path.exists()` alone already covered that case); and re-running
+  the same command against the now-populated, non-empty CSV from the previous step appends nothing new (all
+  pairs already in `load_completed_pairs`) and does not duplicate the header (`grep -c` for the header line
+  stayed at 1) — the resume path from Task 2/`load_completed_pairs` is unaffected by this change since it only
+  touches `open_output_csv`'s header-writing decision, not the reading side.
+- Quality gate: `flake8`, `isort --check-only`, `yapf --diff` on `scripts/model_sweep.py` all clean (exit 0,
+  no diff).
